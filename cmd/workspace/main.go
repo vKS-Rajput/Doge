@@ -1,21 +1,18 @@
 // Doge — AI Security Research Workspace
 //
-// This is the entry point for the workspace CLI. It initializes the
-// command router and dispatches to the appropriate module handler.
-//
-// Usage:
-//
-//	workspace init [name]        Initialize a new workspace
-//	workspace open [path]        Open an existing workspace
-//	workspace version            Print version information
+// This is the entry point for the workspace CLI. Every command is thin:
+// it parses flags, validates input, and delegates to an Application Service.
+// No business logic lives here.
 package main
 
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
-// Version information, set at build time via ldflags.
+// Build-time variables, set via ldflags.
 var (
 	version = "dev"
 	commit  = "unknown"
@@ -23,15 +20,44 @@ var (
 )
 
 func main() {
-	// TODO(Phase 2): Replace with cobra command router.
-	// For now, this is a minimal entry point that verifies the build works.
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Printf("doge %s (commit: %s, built: %s)\n", version, commit, date)
-		return
+	root := newRootCmd()
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// newRootCmd creates the root command with all subcommands registered.
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:   "doge",
+		Short: "AI Security Research Workspace",
+		Long: `Doge is a terminal-native workspace that helps security researchers
+organize, remember, and reason about the artifacts a real engagement produces.
+
+It watches your project directory for tool output, parses it into structured
+observations, builds a knowledge graph, and surfaces insights — all without
+requiring AI. AI reasoning is available but optional.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	fmt.Println("doge — AI Security Research Workspace")
-	fmt.Println("Run 'doge version' for version information.")
-	fmt.Println()
-	fmt.Println("Commands will be available after Phase 2 (Command Router).")
+	root.AddCommand(
+		newVersionCmd(),
+		newInitCmd(),
+		newStatusCmd(),
+		newImportCmd(),
+	)
+
+	return root
+}
+
+// newVersionCmd creates the 'version' command.
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("doge %s (commit: %s, built: %s)\n", version, commit, date)
+		},
+	}
 }

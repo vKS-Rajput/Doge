@@ -46,6 +46,9 @@ requiring AI. AI reasoning is available but optional.`,
 		newInitCmd(),
 		newStatusCmd(),
 		newImportCmd(),
+		newTimelineCmd(),
+		newSearchCmd(),
+		newGraphCmd(),
 	)
 
 	return root

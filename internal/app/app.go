@@ -34,7 +34,9 @@ import (
 	"github.com/vKS-Rajput/doge/internal/cache"
 	"github.com/vKS-Rajput/doge/internal/config"
 	"github.com/vKS-Rajput/doge/internal/db"
+	"github.com/vKS-Rajput/doge/internal/entity"
 	"github.com/vKS-Rajput/doge/internal/logging"
+	"github.com/vKS-Rajput/doge/internal/timeline"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
 
@@ -167,6 +169,9 @@ func Init(ctx context.Context, rootPath string, name string) (*App, error) {
 		DefaultProjectID: defaultProjectID,
 	}
 
+	// Start the entity materializer.
+	app.startMaterializer()
+
 	logger.Info("workspace initialized",
 		"workspace_id", workspace.ID.String(),
 		"default_project_id", defaultProjectID.String(),
@@ -265,8 +270,24 @@ func Open(ctx context.Context, rootPath string) (*App, error) {
 		DefaultProjectID: uuid.MustParse(defaultProjectID),
 	}
 
+	// Start the entity materializer.
+	app.startMaterializer()
+
 	logger.Info("workspace opened")
 	return app, nil
+}
+
+// startMaterializer initializes and subscribes the entity materializer
+// and timeline to observation events. This connects the observation
+// pipeline to the knowledge graph and event history.
+func (a *App) startMaterializer() {
+	entityStore := entity.NewStore(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "entity"))
+	materializer := entity.NewMaterializer(entityStore, a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "materializer"))
+	materializer.Subscribe()
+
+	// Start the timeline — records all significant events.
+	tl := timeline.New(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "timeline"))
+	tl.Subscribe()
 }
 
 // Shutdown gracefully stops the application. Drains the event bus,

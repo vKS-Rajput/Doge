@@ -1,0 +1,56 @@
+# Doge — Default Workspace Configuration
+#
+# This file is copied into new workspaces as workspace.toml during
+# 'workspace init'. Settings here can be overridden per-project
+# in projects/<slug>/config.toml.
+
+[workspace]
+name = ""                          # Set during workspace init
+
+[watcher]
+debounce_ms = 300                  # Milliseconds to debounce filesystem events
+ignore_patterns = [                # Glob patterns to ignore
+    "*.tmp",
+    "*.swp",
+    "*.swo",
+    "*~",
+    ".git/**",
+    ".doge/**",
+    "node_modules/**",
+]
+
+[parser]
+max_file_size_mb = 50              # Skip files larger than this
+
+[database]
+wal_mode = true                    # Enable WAL for concurrent reads
+busy_timeout_ms = 5000             # SQLite busy timeout
+
+[cache]
+max_entries = 1000                 # Maximum LRU cache entries
+ttl_minutes = 60                   # Default TTL for cache entries
+
+[ai]
+enabled = false                    # AI is optional; disabled by default
+provider = "openai_compatible"     # openai_compatible | ollama
+base_url = "http://localhost:11434/v1"  # Ollama's OpenAI-compatible endpoint
+model = ""                         # Model name (e.g., "llama3.1", "mistral")
+context_window = 8192              # Model context window size in tokens
+max_response_tokens = 2048         # Maximum tokens in AI response
+temperature = 0.1                  # Low temperature for grounded reasoning
+timeout_seconds = 120              # Timeout for AI invocations
+
+[ai.verification]
+require_evidence = true            # Reject responses without evidence citations
+max_speculation_ratio = 0.1        # Max fraction of response that can be speculative
+
+[logging]
+level = "info"                     # debug | info | warn | error
+format = "text"                    # text | json
+redact_sensitive = true            # Redact target URLs, tokens, cookies in logs
+
+[snapshot]
+auto_interval_minutes = 60         # Auto-snapshot interval (0 to disable)
+
+[rules]
+enabled = true                     # Enable the deterministic Rule Engine

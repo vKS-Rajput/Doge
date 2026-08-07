@@ -1,0 +1,30 @@
+# Build artifacts
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+coverage.out
+*.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+
+# Workspace data (created at runtime, not committed)
+*.db
+*.db-wal
+*.db-shm

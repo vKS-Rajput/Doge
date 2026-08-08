@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,6 +64,9 @@ type Finding struct {
 	// if applicable.
 	HypothesisID *uuid.UUID `json:"hypothesis_id,omitempty"`
 
+	// InvestigationID links to the investigation this finding belongs to.
+	InvestigationID *uuid.UUID `json:"investigation_id,omitempty"`
+
 	// Notes holds the researcher's freeform notes about this finding.
 	Notes string `json:"notes"`
 
@@ -78,4 +82,25 @@ type Finding struct {
 	// ConfirmedAt is when the researcher confirmed this finding.
 	// Nil if the finding is still in draft status.
 	ConfirmedAt *time.Time `json:"confirmed_at,omitempty"`
+}
+
+// ValidateFinding ensures a finding has evidence.
+//
+// Findings are researcher-confirmed facts, not AI opinions.
+// A finding without evidence is invalid — this prevents the
+// memory hallucination cascade where AI-generated hypotheses
+// become "findings" and then get treated as established facts.
+//
+//	AI can propose → Hypothesis
+//	AI can suggest → Potential finding
+//	Evidence + researcher → Finding ✓
+//	AI alone → Finding ✗
+func ValidateFinding(f Finding) error {
+	if f.Title == "" {
+		return fmt.Errorf("finding title is empty")
+	}
+	if len(f.EvidenceIDs) == 0 {
+		return fmt.Errorf("finding must have at least one evidence ID: findings require evidence")
+	}
+	return nil
 }

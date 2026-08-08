@@ -125,6 +125,19 @@ func (v *Verifier) verifyClaim(index int, claim ai.Claim, evidenceByID map[strin
 		return result
 	}
 
+	// Layer 7: Provenance consistency.
+	// If the claim mentions a specific entity (domain, URL, IP), verify that
+	// the cited evidence actually references that entity, not a different one
+	// that happens to share keywords.
+	claimDomain := extractDomainFromClaim(claimLower)
+	if claimDomain != "" {
+		if !evidenceReferencesDomain(claimDomain, resolvedEvidence) {
+			result.Status = ai.StatusPartiallySupported
+			result.Reason = "Claim references '" + claimDomain + "' but cited evidence does not reference that entity."
+			return result
+		}
+	}
+
 	// Default: if evidence IDs are valid and category is appropriate,
 	// the claim is supported.
 	result.Status = ai.StatusSupported
@@ -311,4 +324,16 @@ func extractDomainFromClaim(claimLower string) string {
 		}
 	}
 	return ""
+}
+
+// evidenceReferencesDomain checks if any of the cited evidence
+// references the given domain/URL entity.
+func evidenceReferencesDomain(domain string, evidence []*retriever.Evidence) bool {
+	for _, e := range evidence {
+		combined := strings.ToLower(e.Summary + " " + e.Detail)
+		if strings.Contains(combined, domain) {
+			return true
+		}
+	}
+	return false
 }

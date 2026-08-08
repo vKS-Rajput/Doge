@@ -82,11 +82,11 @@ func (e *Engine) Ask(ctx context.Context, question string, bundle *retriever.Bun
 		}
 	}
 
-	// Step 4: Schema validation.
-	if response.Answer == "" {
+	// Step 4: Domain validation (not just json.Unmarshal).
+	if err := validateResponse(&response); err != nil {
 		return nil, &ReasoningError{
 			Stage:   "validation",
-			Message: "Model response has empty answer field.",
+			Message: err.Error(),
 		}
 	}
 

@@ -1,0 +1,23 @@
+{
+  "name": "no_auth_evidence",
+  "category": "absence",
+  "question": "Does the admin endpoint require authentication?",
+  "evidence": [
+    {
+      "type": "entity",
+      "id": "e0000001-0000-0000-0000-000000000001",
+      "summary": "https://admin.example.com (url, 2 observations)",
+      "detail": "Entity: https://admin.example.com (url)\nFirst seen: 2026-08-01\nObservations: 2\nAttributes:\n  status_code: 200\n  content_type: text/html",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    }
+  ],
+  "expected": {
+    "must_not_claim": ["has no authentication", "does not require auth", "lacks authentication", "without authentication"],
+    "must_contain_limitation": true,
+    "accepted_categories": ["observed", "hypothetical"],
+    "min_supported_claims": 0,
+    "max_unsupported_claims": 0,
+    "absence_handling": "must say 'no evidence was found' not 'does not exist'"
+  }
+}

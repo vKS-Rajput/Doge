@@ -1,0 +1,31 @@
+{
+  "name": "technology_conflict",
+  "category": "contradiction",
+  "question": "What web server does admin.example.com use?",
+  "evidence": [
+    {
+      "type": "relationship",
+      "id": "r0000001-0000-0000-0000-000000000001",
+      "summary": "admin.example.com (subdomain) → uses_technology → nginx (technology)",
+      "detail": "Relationship: uses_technology\nSource: admin.example.com (subdomain)\nTarget: nginx (technology)",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    },
+    {
+      "type": "relationship",
+      "id": "r0000002-0000-0000-0000-000000000002",
+      "summary": "admin.example.com (subdomain) → uses_technology → apache (technology)",
+      "detail": "Relationship: uses_technology\nSource: admin.example.com (subdomain)\nTarget: apache (technology)",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    }
+  ],
+  "expected": {
+    "must_cite": ["r0000001", "r0000002"],
+    "must_not_claim": [],
+    "accepted_categories": ["observed", "inferred"],
+    "min_supported_claims": 1,
+    "max_unsupported_claims": 0,
+    "should_note_contradiction": true
+  }
+}

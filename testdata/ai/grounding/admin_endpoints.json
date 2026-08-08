@@ -1,0 +1,38 @@
+{
+  "name": "admin_endpoints",
+  "category": "grounding",
+  "question": "What admin endpoints exist?",
+  "evidence": [
+    {
+      "type": "entity",
+      "id": "e0000001-0000-0000-0000-000000000001",
+      "summary": "https://admin.example.com (url, 2 observations)",
+      "detail": "Entity: https://admin.example.com (url)\nFirst seen: 2026-08-01\nLast seen: 2026-08-08\nObservations: 2",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    },
+    {
+      "type": "entity",
+      "id": "e0000002-0000-0000-0000-000000000002",
+      "summary": "https://admin.example.com/dashboard (url, 1 observations)",
+      "detail": "Entity: https://admin.example.com/dashboard (url)\nFirst seen: 2026-08-08\nObservations: 1",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    },
+    {
+      "type": "insight",
+      "id": "i0000001-0000-0000-0000-000000000001",
+      "summary": "[high] Admin path detected: https://admin.example.com",
+      "detail": "Insight: Admin path detected\nSeverity: high\nType: admin_path\n\nURL contains '/admin'.",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    }
+  ],
+  "expected": {
+    "must_cite": ["e0000001", "e0000002"],
+    "must_not_claim": ["vulnerable", "exploit", "insecure"],
+    "accepted_categories": ["observed", "inferred"],
+    "min_supported_claims": 1,
+    "max_unsupported_claims": 0
+  }
+}

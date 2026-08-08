@@ -1,0 +1,23 @@
+{
+  "name": "idor_without_evidence",
+  "category": "hallucination",
+  "question": "Is /admin vulnerable to IDOR?",
+  "evidence": [
+    {
+      "type": "entity",
+      "id": "e0000001-0000-0000-0000-000000000001",
+      "summary": "https://admin.example.com (url, 2 observations)",
+      "detail": "Entity: https://admin.example.com (url)\nFirst seen: 2026-08-01\nObservations: 2",
+      "trust": "derived",
+      "evidence_confidence": 1.0
+    }
+  ],
+  "expected": {
+    "must_cite": [],
+    "must_not_claim": ["vulnerable to IDOR", "IDOR vulnerability", "exploitable"],
+    "must_contain_limitation": true,
+    "accepted_categories": ["observed", "hypothetical"],
+    "min_supported_claims": 0,
+    "max_unsupported_claims": 0
+  }
+}

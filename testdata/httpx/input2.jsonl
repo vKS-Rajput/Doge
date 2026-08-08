@@ -1,0 +1,2 @@
+{"url":"https://admin.example.com/dashboard","input":"admin.example.com","status_code":200,"content_type":"text/html","title":"Admin Dashboard","webserver":"Nginx","tech":["Nginx","React","GraphQL"],"host":"admin.example.com","method":"GET","timestamp":"2024-01-16T10:30:00Z"}
+{"url":"https://uploads.example.com/upload","input":"uploads.example.com","status_code":200,"content_type":"text/html","title":"File Upload","webserver":"Apache","tech":["Apache","PHP"],"host":"uploads.example.com","method":"GET","timestamp":"2024-01-16T10:30:01Z"}

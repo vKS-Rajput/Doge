@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/vKS-Rajput/doge/internal/diff"
 	"github.com/vKS-Rajput/doge/internal/entity"
 	"github.com/vKS-Rajput/doge/internal/insight"
 	"github.com/vKS-Rajput/doge/internal/logging"
@@ -99,4 +100,22 @@ func (a *App) Insights(ctx context.Context, limit int) ([]insight.Insight, error
 func (a *App) Tasks(ctx context.Context, status string, limit int) ([]task.Task, error) {
 	engine := task.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "task"))
 	return engine.Query(ctx, a.DefaultProjectID, status, limit)
+}
+
+// TakeSnapshot creates a point-in-time snapshot of the Knowledge Graph.
+func (a *App) TakeSnapshot(ctx context.Context, label string) (diff.Snapshot, error) {
+	engine := diff.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "diff"))
+	return engine.TakeSnapshot(ctx, a.DefaultProjectID, label)
+}
+
+// ListSnapshots returns all snapshots for the workspace.
+func (a *App) ListSnapshots(ctx context.Context) ([]diff.Snapshot, error) {
+	engine := diff.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "diff"))
+	return engine.ListSnapshots(ctx, a.DefaultProjectID)
+}
+
+// ComputeDiff computes the structural difference between two snapshots.
+func (a *App) ComputeDiff(ctx context.Context, snapshotA, snapshotB uuid.UUID) (*diff.DiffResult, error) {
+	engine := diff.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "diff"))
+	return engine.ComputeDiff(ctx, snapshotA, snapshotB)
 }

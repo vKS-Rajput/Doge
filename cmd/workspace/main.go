@@ -51,6 +51,9 @@ requiring AI. AI reasoning is available but optional.`,
 		newGraphCmd(),
 		newInsightsCmd(),
 		newTasksCmd(),
+		newSnapshotCmd(),
+		newSnapshotsCmd(),
+		newDiffCmd(),
 	)
 
 	return root

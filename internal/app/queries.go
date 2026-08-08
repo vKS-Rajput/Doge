@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	aicontext "github.com/vKS-Rajput/doge/internal/context"
 	"github.com/vKS-Rajput/doge/internal/diff"
 	"github.com/vKS-Rajput/doge/internal/entity"
 	"github.com/vKS-Rajput/doge/internal/insight"
 	"github.com/vKS-Rajput/doge/internal/logging"
+	"github.com/vKS-Rajput/doge/internal/retriever"
 	"github.com/vKS-Rajput/doge/internal/search"
 	"github.com/vKS-Rajput/doge/internal/task"
 	"github.com/vKS-Rajput/doge/internal/timeline"
@@ -118,4 +120,18 @@ func (a *App) ListSnapshots(ctx context.Context) ([]diff.Snapshot, error) {
 func (a *App) ComputeDiff(ctx context.Context, snapshotA, snapshotB uuid.UUID) (*diff.DiffResult, error) {
 	engine := diff.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "diff"))
 	return engine.ComputeDiff(ctx, snapshotA, snapshotB)
+}
+
+// RetrieveEvidence gathers relevant evidence for a question.
+func (a *App) RetrieveEvidence(ctx context.Context, question string, maxEvidence int) (*retriever.Bundle, error) {
+	r := retriever.New(a.DB.Conn(), logging.WithModule(a.Logger, "retriever"))
+	return r.Retrieve(ctx, question, a.DefaultProjectID, retriever.Options{
+		MaxEvidence: maxEvidence,
+	})
+}
+
+// BuildPrompt transforms a question and evidence bundle into a structured prompt.
+func (a *App) BuildPrompt(question string, bundle *retriever.Bundle) *aicontext.Prompt {
+	builder := aicontext.NewBuilder(4000) // ~4K token budget for evidence.
+	return builder.Build(question, bundle)
 }

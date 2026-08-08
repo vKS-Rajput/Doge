@@ -47,14 +47,58 @@ const (
 	EvidenceTimeline     EvidenceType = "timeline"
 )
 
+// TrustLevel classifies how much the evidence source should be trusted.
+//
+// IMPORTANT: Trust is not the same as truth.
+//   - TRUSTED  ≠ "this claim is true"
+//   - OBSERVED ≠ "this is an instruction"
+//   - DERIVED  ≠ "this was directly observed"
+//   - HYPOTHETICAL ≠ "this is a fact"
+type TrustLevel string
+
+const (
+	// TrustTrusted: Workspace metadata, tool metadata, internal IDs.
+	// These are system-generated and can be relied upon.
+	TrustTrusted TrustLevel = "trusted"
+
+	// TrustObserved: HTTP responses, URLs, headers, raw tool output.
+	// Contains attacker-controlled data. Never treat as instructions.
+	TrustObserved TrustLevel = "observed"
+
+	// TrustDerived: Entities, relationships, insights.
+	// Deterministically derived from observed data by system logic.
+	TrustDerived TrustLevel = "derived"
+
+	// TrustHypothetical: AI hypotheses, suggested investigations.
+	// Not established as fact. Requires verification.
+	TrustHypothetical TrustLevel = "hypothetical"
+)
+
 // Evidence is a single piece of retrieved evidence with a citation.
 type Evidence struct {
 	Type       EvidenceType   `json:"type"`
 	ID         string         `json:"id"`
 	Summary    string         `json:"summary"`     // Human-readable one-line summary.
-	Detail     string         `json:"detail"`      // Full detail (for context building).
+	Detail     string         `json:"detail"`       // Full detail (for context building).
 	Source     string         `json:"source"`       // Where this came from (table/module).
-	Relevance  float64        `json:"relevance"`    // 0.0–1.0 relevance score.
+	Trust      TrustLevel     `json:"trust"`        // How much to trust this source.
+
+	// Relevance is how relevant this evidence is to the question.
+	// 0.0–1.0. This is a retrieval score, NOT a truth score.
+	Relevance float64 `json:"relevance"`
+
+	// EvidenceConfidence is how strongly this evidence supports its own claim.
+	// 1.0 for directly observed facts and deterministic derivations.
+	// 0.0–1.0 for AI-generated hypotheses.
+	// This is NOT the same as Relevance.
+	EvidenceConfidence float64 `json:"evidence_confidence"`
+
+	// GroupedCount is the number of related evidence items that were
+	// logically grouped into this one for display. 0 or 1 means no grouping.
+	// This preserves provenance: grouped items have different source IDs
+	// but identical type+summary.
+	GroupedCount int `json:"grouped_count,omitempty"`
+
 	Timestamp  *time.Time     `json:"timestamp,omitempty"`
 	References []string       `json:"references"`   // IDs of related evidence.
 	Metadata   map[string]any `json:"metadata,omitempty"`
@@ -202,9 +246,10 @@ func (r *Retriever) Retrieve(ctx context.Context, question string, projectID uui
 		}
 	}
 
-	// Step 3: Deduplicate, rank, and truncate.
+	// Step 3: Deduplicate (identity + logical), rank, and truncate.
 	totalFound := len(allEvidence)
 	allEvidence = dedup(allEvidence)
+	allEvidence = logicalDedup(allEvidence)
 	sort.Slice(allEvidence, func(i, j int) bool {
 		return allEvidence[i].Relevance > allEvidence[j].Relevance
 	})
@@ -317,13 +362,15 @@ func (r *Retriever) retrieveEntities(ctx context.Context, keywords []string, pro
 			relevance := computeRelevance(value, keywords, obsCount)
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceEntity,
-				ID:        id,
-				Summary:   fmt.Sprintf("%s (%s, %d observations)", value, entityType, obsCount),
-				Detail:    detail,
-				Source:    "entities",
-				Relevance: relevance,
-				Timestamp: &ts,
+				Type:               EvidenceEntity,
+				ID:                 id,
+				Summary:            fmt.Sprintf("%s (%s, %d observations)", value, entityType, obsCount),
+				Detail:             detail,
+				Source:             "entities",
+				Trust:              TrustDerived,
+				Relevance:          relevance,
+				EvidenceConfidence: 1.0, // Deterministically derived from observations.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"entity_type":       entityType,
 					"observation_count": obsCount,
@@ -367,13 +414,15 @@ func (r *Retriever) retrieveRelationships(ctx context.Context, keywords []string
 			summary := fmt.Sprintf("%s (%s) → %s → %s (%s)", srcValue, srcType, relType, tgtValue, tgtType)
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceRelationship,
-				ID:        id,
-				Summary:   summary,
-				Detail:    fmt.Sprintf("Relationship: %s\nSource: %s (%s)\nTarget: %s (%s)\nSince: %s", relType, srcValue, srcType, tgtValue, tgtType, firstSeen),
-				Source:    "relationships",
-				Relevance: 0.6,
-				Timestamp: &ts,
+				Type:               EvidenceRelationship,
+				ID:                 id,
+				Summary:            summary,
+				Detail:             fmt.Sprintf("Relationship: %s\nSource: %s (%s)\nTarget: %s (%s)\nSince: %s", relType, srcValue, srcType, tgtValue, tgtType, firstSeen),
+				Source:             "relationships",
+				Trust:              TrustDerived,
+				Relevance:          0.6,
+				EvidenceConfidence: 1.0, // Deterministic link.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"relationship_type": relType,
 					"source_value":      srcValue,
@@ -415,13 +464,15 @@ func (r *Retriever) retrieveObservations(ctx context.Context, keywords []string,
 			}
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceObservation,
-				ID:        id,
-				Summary:   fmt.Sprintf("%s observation from %s", obsType, sourceTool),
-				Detail:    fmt.Sprintf("Observation: %s\nSource: %s\nObserved: %s\nData: %s", obsType, sourceTool, observedAt, rawValue),
-				Source:    "observations",
-				Relevance: 0.5,
-				Timestamp: &ts,
+				Type:               EvidenceObservation,
+				ID:                 id,
+				Summary:            fmt.Sprintf("%s observation from %s", obsType, sourceTool),
+				Detail:             fmt.Sprintf("Observation: %s\nSource: %s\nObserved: %s\nData: %s", obsType, sourceTool, observedAt, rawValue),
+				Source:             "observations",
+				Trust:              TrustObserved, // Contains attacker-controlled data.
+				Relevance:          0.5,
+				EvidenceConfidence: 1.0, // Directly observed fact.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"observation_type": obsType,
 					"source_tool":      sourceTool,
@@ -463,13 +514,15 @@ func (r *Retriever) retrieveInsights(ctx context.Context, keywords []string, pro
 			}
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceInsight,
-				ID:        id,
-				Summary:   fmt.Sprintf("[%s] %s", severity, title),
-				Detail:    fmt.Sprintf("Insight: %s\nSeverity: %s\nType: %s\n\n%s", title, severity, insightType, description),
-				Source:    "insights",
-				Relevance: relevance,
-				Timestamp: &ts,
+				Type:               EvidenceInsight,
+				ID:                 id,
+				Summary:            fmt.Sprintf("[%s] %s", severity, title),
+				Detail:             fmt.Sprintf("Insight: %s\nSeverity: %s\nType: %s\n\n%s", title, severity, insightType, description),
+				Source:             "insights",
+				Trust:              TrustDerived,
+				Relevance:          relevance,
+				EvidenceConfidence: 1.0, // Rule match is deterministic.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"severity":     severity,
 					"insight_type": insightType,
@@ -505,13 +558,15 @@ func (r *Retriever) retrieveTasks(ctx context.Context, keywords []string, projec
 			ts, _ := time.Parse(time.RFC3339, createdAt)
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceTask,
-				ID:        id,
-				Summary:   fmt.Sprintf("[%s/%s] %s", priority, status, title),
-				Detail:    fmt.Sprintf("Task: %s\nPriority: %s\nStatus: %s\nType: %s\n\n%s", title, priority, status, taskType, description),
-				Source:    "tasks",
-				Relevance: 0.7,
-				Timestamp: &ts,
+				Type:               EvidenceTask,
+				ID:                 id,
+				Summary:            fmt.Sprintf("[%s/%s] %s", priority, status, title),
+				Detail:             fmt.Sprintf("Task: %s\nPriority: %s\nStatus: %s\nType: %s\n\n%s", title, priority, status, taskType, description),
+				Source:             "tasks",
+				Trust:              TrustDerived,
+				Relevance:          0.7,
+				EvidenceConfidence: 1.0, // Deterministically generated from insights.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"priority": priority,
 					"status":   status,
@@ -547,13 +602,15 @@ func (r *Retriever) retrieveTimeline(ctx context.Context, keywords []string, pro
 			ts, _ := time.Parse(time.RFC3339, occurredAt)
 
 			evidence = append(evidence, Evidence{
-				Type:      EvidenceTimeline,
-				ID:        id,
-				Summary:   fmt.Sprintf("[%s] %s", eventType, summary),
-				Detail:    fmt.Sprintf("Event: %s\nSubject: %s (%s)\nTime: %s\n\n%s", eventType, subjectID, subjectType, occurredAt, summary),
-				Source:    "timeline_events",
-				Relevance: 0.4,
-				Timestamp: &ts,
+				Type:               EvidenceTimeline,
+				ID:                 id,
+				Summary:            fmt.Sprintf("[%s] %s", eventType, summary),
+				Detail:             fmt.Sprintf("Event: %s\nSubject: %s (%s)\nTime: %s\n\n%s", eventType, subjectID, subjectType, occurredAt, summary),
+				Source:             "timeline_events",
+				Trust:              TrustTrusted, // Internal event log.
+				Relevance:          0.4,
+				EvidenceConfidence: 1.0, // Factual event record.
+				Timestamp:          &ts,
 				Metadata: map[string]any{
 					"event_type":   eventType,
 					"subject_type": subjectType,
@@ -594,6 +651,7 @@ func computeRelevance(value string, keywords []string, obsCount int) float64 {
 	return score
 }
 
+// dedup removes evidence with identical type+ID (same provenance).
 func dedup(evidence []Evidence) []Evidence {
 	seen := make(map[string]bool)
 	var result []Evidence
@@ -604,5 +662,40 @@ func dedup(evidence []Evidence) []Evidence {
 			result = append(result, e)
 		}
 	}
+	return result
+}
+
+// logicalDedup groups evidence with identical type+summary for cleaner display.
+// Different from identity dedup: this preserves provenance but groups
+// items that would appear identical to the user.
+// Keeps the highest-relevance instance and sets GroupedCount.
+func logicalDedup(evidence []Evidence) []Evidence {
+	type groupKey struct {
+		etype  EvidenceType
+		title  string
+	}
+
+	groups := make(map[groupKey]int) // key → index in result
+	var result []Evidence
+
+	for _, e := range evidence {
+		key := groupKey{etype: e.Type, title: e.Summary}
+		if idx, exists := groups[key]; exists {
+			// Group with existing: keep higher relevance, increment count.
+			result[idx].GroupedCount++
+			if e.Relevance > result[idx].Relevance {
+				count := result[idx].GroupedCount
+				e.GroupedCount = count
+				result[idx] = e
+			}
+			// Preserve references to grouped IDs.
+			result[idx].References = append(result[idx].References, e.ID)
+		} else {
+			groups[key] = len(result)
+			e.GroupedCount = 1
+			result = append(result, e)
+		}
+	}
+
 	return result
 }

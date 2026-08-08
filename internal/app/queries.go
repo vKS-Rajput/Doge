@@ -17,6 +17,9 @@ import (
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
 
+// EvidenceBundle is a type alias for retriever.Bundle for external use.
+type EvidenceBundle = retriever.Bundle
+
 // TimelineEntries returns recent timeline entries for the workspace.
 func (a *App) TimelineEntries(ctx context.Context, limit int) ([]timeline.Entry, error) {
 	tl := timeline.New(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "timeline"))

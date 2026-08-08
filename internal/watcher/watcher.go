@@ -187,7 +187,7 @@ func (w *Watcher) scan(ctx context.Context) {
 		} else if current.modTime != prev.modTime || current.size != prev.size {
 			// Modified file.
 			w.known[path] = current
-			w.bus.Publish(ctx, events.FileChanged{
+			w.bus.Publish(ctx, events.FileModified{
 				BaseEvent: events.NewBaseEvent(),
 				Path:      path,
 				ProjectID: w.projectID,

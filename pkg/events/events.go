@@ -26,7 +26,7 @@ type Topic string
 const (
 	// File events (Producer: File Watcher)
 	TopicFileCreated Topic = "file.created"
-	TopicFileChanged Topic = "file.changed"
+	TopicFileModified Topic = "file.modified"
 	TopicFileDeleted Topic = "file.deleted"
 
 	// Artifact events (Producer: Artifact Store)
@@ -119,15 +119,15 @@ type FileCreated struct {
 // EventTopic returns the routing topic.
 func (e FileCreated) EventTopic() Topic { return TopicFileCreated }
 
-// FileChanged is emitted when an existing watched file is modified.
-type FileChanged struct {
+// FileModified is emitted when an existing watched file is modified.
+type FileModified struct {
 	BaseEvent
 	Path      string    `json:"path"`
 	ProjectID uuid.UUID `json:"project_id"`
 }
 
 // EventTopic returns the routing topic.
-func (e FileChanged) EventTopic() Topic { return TopicFileChanged }
+func (e FileModified) EventTopic() Topic { return TopicFileModified }
 
 // FileDeleted is emitted when a watched file is removed.
 type FileDeleted struct {

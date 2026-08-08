@@ -56,6 +56,7 @@ requiring AI. AI reasoning is available but optional.`,
 		newDiffCmd(),
 		newAskCmd(),
 		newInvestigateCmd(),
+		newWatchCmd(),
 	)
 
 	return root

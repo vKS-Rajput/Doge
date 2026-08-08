@@ -71,7 +71,7 @@ func TestWatcher_DetectsModifiedFile(t *testing.T) {
 	w, eventBus := newTestWatcher(t, dir)
 
 	var changed atomic.Int32
-	eventBus.Subscribe(events.TopicFileChanged, func(ctx context.Context, e events.Event) error {
+	eventBus.Subscribe(events.TopicFileModified, func(ctx context.Context, e events.Event) error {
 		changed.Add(1)
 		return nil
 	})

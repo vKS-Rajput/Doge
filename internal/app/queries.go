@@ -6,8 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vKS-Rajput/doge/internal/entity"
+	"github.com/vKS-Rajput/doge/internal/insight"
 	"github.com/vKS-Rajput/doge/internal/logging"
 	"github.com/vKS-Rajput/doge/internal/search"
+	"github.com/vKS-Rajput/doge/internal/task"
 	"github.com/vKS-Rajput/doge/internal/timeline"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
@@ -85,4 +87,16 @@ func (a *App) GetEntity(ctx context.Context, entityID uuid.UUID) (*EntityDetails
 		Entity:        e,
 		Relationships: rels,
 	}, nil
+}
+
+// Insights returns recent insights for the workspace.
+func (a *App) Insights(ctx context.Context, limit int) ([]insight.Insight, error) {
+	engine := insight.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "insight"))
+	return engine.Query(ctx, a.DefaultProjectID, limit)
+}
+
+// Tasks returns tasks for the workspace.
+func (a *App) Tasks(ctx context.Context, status string, limit int) ([]task.Task, error) {
+	engine := task.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "task"))
+	return engine.Query(ctx, a.DefaultProjectID, status, limit)
 }

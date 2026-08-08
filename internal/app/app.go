@@ -35,7 +35,9 @@ import (
 	"github.com/vKS-Rajput/doge/internal/config"
 	"github.com/vKS-Rajput/doge/internal/db"
 	"github.com/vKS-Rajput/doge/internal/entity"
+	"github.com/vKS-Rajput/doge/internal/insight"
 	"github.com/vKS-Rajput/doge/internal/logging"
+	"github.com/vKS-Rajput/doge/internal/task"
 	"github.com/vKS-Rajput/doge/internal/timeline"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
@@ -277,17 +279,29 @@ func Open(ctx context.Context, rootPath string) (*App, error) {
 	return app, nil
 }
 
-// startMaterializer initializes and subscribes the entity materializer
-// and timeline to observation events. This connects the observation
-// pipeline to the knowledge graph and event history.
+// startSubscribers initializes and subscribes all event-driven
+// components. This connects:
+//   - observation.batch → Materializer → entities + relationships
+//   - entity.created → Insight Engine → insights
+//   - insight.detected → Task Engine → tasks
+//   - all events → Timeline
 func (a *App) startMaterializer() {
+	// Knowledge Graph materialization.
 	entityStore := entity.NewStore(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "entity"))
 	materializer := entity.NewMaterializer(entityStore, a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "materializer"))
 	materializer.Subscribe()
 
-	// Start the timeline — records all significant events.
+	// Timeline — records all significant events.
 	tl := timeline.New(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "timeline"))
 	tl.Subscribe()
+
+	// Insight Engine — deterministic rule-based pattern detection.
+	insightEngine := insight.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "insight"))
+	insightEngine.Subscribe()
+
+	// Task Engine — generates actionable tasks from insights.
+	taskEngine := task.NewEngine(a.DB.Conn(), a.Bus, logging.WithModule(a.Logger, "task"))
+	taskEngine.Subscribe()
 }
 
 // Shutdown gracefully stops the application. Drains the event bus,

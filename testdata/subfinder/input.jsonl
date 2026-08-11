@@ -1,0 +1,5 @@
+{"host":"admin.example.com","source":"crtsh","input":"example.com"}
+{"host":"api.example.com","source":"virustotal","input":"example.com"}
+{"host":"dev.example.com","source":"hackertarget","input":"example.com"}
+{"host":"staging.example.com","source":"sublist3r","input":"example.com"}
+{"host":"mail.example.com","source":"dnsdumpster","input":"example.com"}

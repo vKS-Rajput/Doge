@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sV -oX output.xml 203.0.113.10" start="1705312200" version="7.94">
+  <host starttime="1705312200" endtime="1705312215">
+    <status state="up" reason="syn-ack"/>
+    <address addr="203.0.113.10" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="admin.example.com" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack"/>
+        <service name="ssh" product="OpenSSH" version="8.9p1" extrainfo="Ubuntu" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="nginx" version="1.24.0" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="open" reason="syn-ack"/>
+        <service name="https" product="nginx" version="1.24.0" tunnel="ssl" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="3306">
+        <state state="filtered" reason="no-response"/>
+        <service name="mysql" conf="3"/>
+      </port>
+    </ports>
+  </host>
+  <host starttime="1705312200" endtime="1705312218">
+    <status state="up" reason="syn-ack"/>
+    <address addr="203.0.113.20" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="api.example.com" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open" reason="syn-ack"/>
+        <service name="https" product="Apache" version="2.4.58" tunnel="ssl" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="8080">
+        <state state="open" reason="syn-ack"/>
+        <service name="http-proxy" conf="3"/>
+      </port>
+    </ports>
+  </host>
+  <runstats>
+    <finished time="1705312220" elapsed="20.00"/>
+    <hosts up="2" down="0" total="2"/>
+  </runstats>
+</nmaprun>

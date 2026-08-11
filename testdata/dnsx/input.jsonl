@@ -1,0 +1,4 @@
+{"host":"admin.example.com","resolver":["8.8.8.8:53"],"a":["203.0.113.10"],"status_code":"NOERROR","timestamp":"2025-01-15T10:30:00Z"}
+{"host":"api.example.com","resolver":["8.8.8.8:53"],"a":["203.0.113.20"],"aaaa":["2001:db8::1"],"status_code":"NOERROR","timestamp":"2025-01-15T10:30:01Z"}
+{"host":"mail.example.com","resolver":["8.8.8.8:53"],"a":["203.0.113.30"],"cname":["mail.provider.com"],"mx":["mx1.provider.com","mx2.provider.com"],"status_code":"NOERROR","timestamp":"2025-01-15T10:30:02Z"}
+{"host":"dev.example.com","resolver":["8.8.8.8:53"],"status_code":"NXDOMAIN","timestamp":"2025-01-15T10:30:03Z"}

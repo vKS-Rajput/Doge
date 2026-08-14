@@ -72,6 +72,15 @@ const (
 	// System events
 	TopicModuleHealthChanged Topic = "module.health_changed"
 	TopicCacheInvalidated    Topic = "cache.invalidated"
+
+	// v0.9.x Pipeline events (Producer: Orchestrator + subsystems)
+	TopicSurfaceUpdated      Topic = "surface.updated"
+	TopicNoveltyDetected     Topic = "novelty.detected"
+	TopicOpportunityCreated  Topic = "opportunity.created"
+	TopicReasoningCompleted  Topic = "reasoning.completed"
+	TopicValidationCompleted Topic = "validation.completed"
+	TopicCandidateCreated    Topic = "candidate.created"
+	TopicFindingConfirmed    Topic = "finding.confirmed"
 )
 
 // Event is the interface that all events must implement.
@@ -431,3 +440,82 @@ type CacheInvalidated struct {
 
 // EventTopic returns the routing topic.
 func (e CacheInvalidated) EventTopic() Topic { return TopicCacheInvalidated }
+
+// --- v0.9.x Pipeline Events ---
+
+// SurfaceUpdated is emitted when the attack-surface projection changes.
+type SurfaceUpdated struct {
+	BaseEvent
+	ProjectID uuid.UUID `json:"project_id"`
+	PathCount int       `json:"path_count"`
+}
+
+func (e SurfaceUpdated) EventTopic() Topic { return TopicSurfaceUpdated }
+
+// NoveltyDetected is emitted when the novelty engine finds something unusual.
+type NoveltyDetected struct {
+	BaseEvent
+	ProjectID    uuid.UUID `json:"project_id"`
+	NoveltyScore float64   `json:"novelty_score"`
+	SignalType   string    `json:"signal_type"`
+}
+
+func (e NoveltyDetected) EventTopic() Topic { return TopicNoveltyDetected }
+
+// OpportunityCreated is emitted when a research opportunity is generated.
+type OpportunityCreated struct {
+	BaseEvent
+	OpportunityID uuid.UUID `json:"opportunity_id"`
+	ProjectID     uuid.UUID `json:"project_id"`
+	Title         string    `json:"title"`
+	Priority      string    `json:"priority"`
+}
+
+func (e OpportunityCreated) EventTopic() Topic { return TopicOpportunityCreated }
+
+// ReasoningCompleted is emitted when AI reasoning produces hypotheses.
+type ReasoningCompleted struct {
+	BaseEvent
+	ProjectID      uuid.UUID   `json:"project_id"`
+	HypothesisIDs  []uuid.UUID `json:"hypothesis_ids"`
+	OpportunityID  uuid.UUID   `json:"opportunity_id"`
+}
+
+func (e ReasoningCompleted) EventTopic() Topic { return TopicReasoningCompleted }
+
+// ValidationCompleted is emitted when a validation plan finishes execution.
+type ValidationCompleted struct {
+	BaseEvent
+	PlanID       uuid.UUID `json:"plan_id"`
+	HypothesisID uuid.UUID `json:"hypothesis_id"`
+	ProjectID    uuid.UUID `json:"project_id"`
+	ResultCount  int       `json:"result_count"`
+	Completed    bool      `json:"completed"`
+}
+
+func (e ValidationCompleted) EventTopic() Topic { return TopicValidationCompleted }
+
+// CandidateCreated is emitted when a supported hypothesis becomes
+// a finding candidate awaiting human review.
+type CandidateCreated struct {
+	BaseEvent
+	CandidateID  uuid.UUID `json:"candidate_id"`
+	HypothesisID uuid.UUID `json:"hypothesis_id"`
+	ProjectID    uuid.UUID `json:"project_id"`
+	Title        string    `json:"title"`
+}
+
+func (e CandidateCreated) EventTopic() Topic { return TopicCandidateCreated }
+
+// FindingConfirmed is emitted when a human confirms a finding.
+type FindingConfirmed struct {
+	BaseEvent
+	FindingID   uuid.UUID `json:"finding_id"`
+	CandidateID uuid.UUID `json:"candidate_id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	Severity    string    `json:"severity"`
+	ConfirmedBy string    `json:"confirmed_by"`
+}
+
+func (e FindingConfirmed) EventTopic() Topic { return TopicFindingConfirmed }
+

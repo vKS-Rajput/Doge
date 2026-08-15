@@ -18,6 +18,7 @@ type Pane int
 const (
 	PaneLiveFeed Pane = iota
 	PaneResearch
+	PanePipeline
 	PaneAttention
 	PaneWorkspace
 	PaneInput
@@ -120,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "tab":
-			m.focus = (m.focus + 1) % 5
+			m.focus = (m.focus + 1) % 6
 			if m.focus == PaneInput {
 				m.input.Focus()
 			} else {
@@ -174,7 +175,7 @@ func (m Model) View() string {
 
 	// Title bar.
 	title := TitleBarStyle.Width(m.width).Render(
-		"🐕 Doge Research Cockpit                              v0.7.0")
+		"🐕 DOGE Research Cockpit                              v0.9.9")
 
 	// Calculate pane dimensions.
 	paneW := (m.width - 2) / 2
@@ -183,22 +184,23 @@ func (m Model) View() string {
 		paneH = 3
 	}
 
-	// Four panes.
+	// Five panes.
 	topLeft := m.renderLiveFeed(paneW, paneH)
 	topRight := m.renderResearch(paneW, paneH)
-	bottomLeft := m.renderAttention(paneW, paneH)
-	bottomRight := m.renderWorkspace(paneW, paneH)
+	midLeft := m.renderPipeline(paneW, paneH)
+	midRight := m.renderAttention(paneW, paneH)
+	bottomFull := m.renderWorkspace(m.width-2, 4)
 
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top, topLeft, topRight)
-	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, bottomLeft, bottomRight)
-	panes := lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
+	midRow := lipgloss.JoinHorizontal(lipgloss.Top, midLeft, midRight)
+	panes := lipgloss.JoinVertical(lipgloss.Left, topRow, midRow, bottomFull)
 
 	// Command input.
 	inputBar := m.renderInput()
 
 	// Status bar.
 	status := StatusBarStyle.Width(m.width).Render(
-		fmt.Sprintf(" Tab: switch pane | Enter: run command | Ctrl+C: quit    %s",
+		fmt.Sprintf(" Tab: pane | Enter: cmd | pipeline/approve/candidates/findings/report    %s",
 			DimText.Render(time.Now().Format("15:04:05"))))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -268,6 +270,30 @@ func (m Model) renderResearch(w, h int) string {
 		lines = append(lines, DimText.Render("Start one with:"))
 		lines = append(lines, DimText.Render("investigate start \"Title\""))
 	}
+
+	content := header + "\n" + strings.Join(lines, "\n")
+	return style.Render(content)
+}
+
+func (m Model) renderPipeline(w, h int) string {
+	style := PaneStyle.Width(w).Height(h)
+	if m.focus == PanePipeline {
+		style = FocusedPaneStyle.Width(w).Height(h)
+	}
+
+	header := HeaderStyle.Render("🔬 Pipeline")
+	var lines []string
+
+	lines = append(lines, RenderTag(TagObserved)+" → "+
+		RenderTag(TagCorrelated)+" → "+
+		RenderTag(TagNovel))
+	lines = append(lines, RenderTag(TagOpportunity)+" → "+
+		RenderTag(TagHypothesis))
+	lines = append(lines, RenderTag(TagAwaitingApproval))
+	lines = append(lines, RenderTag(TagValidated)+" → "+
+		RenderTag(TagCandidate))
+	lines = append(lines, RenderTag(TagAwaitingConfirm))
+	lines = append(lines, RenderTag(TagConfirmedFinding))
 
 	content := header + "\n" + strings.Join(lines, "\n")
 	return style.Render(content)
@@ -428,8 +454,36 @@ func (m *Model) executeCommand(cmd string) string {
 			return "Commands: status, hypothesize, surface, conclude"
 		}
 		return fmt.Sprintf("Run: doge investigate %s", strings.Join(parts[1:], " "))
+	case "pipeline":
+		return "Pipeline: observations → correlations → surface → novelty → opportunity → reasoning → [APPROVAL] → validation → re-evaluation → [CONFIRMATION] → finding → report"
+	case "approve":
+		if len(parts) < 2 {
+			return "Usage: approve <hypothesis-id>"
+		}
+		return fmt.Sprintf("Run: doge approve %s", parts[1])
+	case "deny":
+		if len(parts) < 2 {
+			return "Usage: deny <hypothesis-id>"
+		}
+		return fmt.Sprintf("Run: doge deny %s", parts[1])
+	case "confirm":
+		if len(parts) < 2 {
+			return "Usage: confirm <candidate-id>"
+		}
+		return fmt.Sprintf("Run: doge confirm %s", parts[1])
+	case "reject":
+		if len(parts) < 2 {
+			return "Usage: reject <candidate-id>"
+		}
+		return fmt.Sprintf("Run: doge reject %s", parts[1])
+	case "candidates":
+		return "Run: doge candidates list"
+	case "findings":
+		return "Run: doge findings list"
+	case "report":
+		return "Run: doge report generate"
 	case "help":
-		return "Commands: ask, search, investigate, quit"
+		return "Commands: ask, search, investigate, pipeline, approve, deny, confirm, reject, candidates, findings, report, quit"
 	default:
 		return fmt.Sprintf("Unknown command: %s. Type 'help' for commands.", parts[0])
 	}

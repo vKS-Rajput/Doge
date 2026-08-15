@@ -59,6 +59,11 @@ requiring AI. AI reasoning is available but optional.`,
 		newInvestigateCmd(),
 		newWatchCmd(),
 		newTUICmd(),
+		// Phase 4: Multi-terminal control plane.
+		newRuntimeStatusCmd(),
+		newConsoleCmd(),
+		newLogsCmd(),
+		newApprovalsCmd(),
 	)
 
 	return root

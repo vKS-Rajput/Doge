@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -96,6 +98,23 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 			}
 			defer application.Shutdown()
 
+			// Set up log file for multi-terminal access (doge logs).
+			absPath, _ := filepath.Abs(wsPath)
+			logPath := filepath.Join(absPath, ".doge", "doge.log")
+			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not create log file: %v\n", err)
+			}
+			if logFile != nil {
+				defer logFile.Close()
+				// Create logger that writes to both stderr and the log file.
+				multiWriter := io.MultiWriter(os.Stderr, logFile)
+				logger := slog.New(slog.NewTextHandler(multiWriter, &slog.HandlerOptions{
+					Level: slog.LevelInfo,
+				}))
+				application.Logger = logger
+			}
+
 			logger := logging.WithModule(application.Logger, "session")
 
 			// Create target.
@@ -148,7 +167,6 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 			printStartupComplete(sess)
 
 			// Start state persistence for multi-terminal access.
-			absPath, _ := filepath.Abs(wsPath)
 			go func() {
 				ticker := time.NewTicker(5 * time.Second)
 				defer ticker.Stop()

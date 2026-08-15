@@ -50,44 +50,64 @@ mkdir -p "$WORKSPACE"
 # Kill existing session if any.
 tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
 
-# Create new tmux session.
-tmux new-session -d -s "$SESSION_NAME" -c "$WORKSPACE"
+# ──────────────────────────────────────────────────────
+# Create tmux session with 4 panes
+# ──────────────────────────────────────────────────────
 
-# Pane 0 (top-left): The DOGE machine.
+# Create session. Pane 0 = top-left = DOGE machine.
+tmux new-session -d -s "$SESSION_NAME" -c "$WORKSPACE" -x 200 -y 50
+
+# Pane 0 (top-left): Start the DOGE machine.
+# We start headless so it runs as a background process.
 tmux send-keys -t "$SESSION_NAME:0.0" \
-    "echo '🐕 DOGE Machine — $TARGET ($ENV)' && echo '' && doge start --target $TARGET --env $ENV --headless" C-m
+    "doge start --target $TARGET --env $ENV --headless" C-m
 
-# Wait for DOGE to initialize.
-sleep 4
+# Wait for DOGE to initialize, create .doge/doge.log, and session.json.
+# This is important — the other panes need these files to exist.
+sleep 6
 
-# Split horizontally → creates pane 1 (right side).
-tmux split-window -h -t "$SESSION_NAME:0" -c "$WORKSPACE"
+# Split horizontally → pane 1 (right half).
+tmux split-window -h -t "$SESSION_NAME:0.0" -c "$WORKSPACE"
 
-# Pane 1 (top-right): Live logs.
+# Pane 1 (top-right): Live logs with follow mode.
+# This tails .doge/doge.log with color-coded output.
 tmux send-keys -t "$SESSION_NAME:0.1" \
-    "echo '📋 Live Event Log' && echo '' && doge logs -f" C-m
+    "doge logs -f" C-m
 
-# Split pane 0 vertically → creates pane 2 (bottom-left).
+# Split pane 0 vertically → pane 2 (bottom-left).
 tmux split-window -v -t "$SESSION_NAME:0.0" -c "$WORKSPACE"
 
-# Pane 2 (bottom-left): Runtime status with auto-refresh.
+# Pane 2 (bottom-left): Runtime dashboard with auto-refresh.
 tmux send-keys -t "$SESSION_NAME:0.2" \
-    "watch -n 10 doge runtime" C-m
+    "watch -n 10 -c doge runtime" C-m
 
-# Split pane 1 vertically → creates pane 3 (bottom-right).
+# Split pane 1 vertically → pane 3 (bottom-right).
 tmux split-window -v -t "$SESSION_NAME:0.1" -c "$WORKSPACE"
 
-# Pane 3 (bottom-right): Interactive console.
+# Pane 3 (bottom-right): Interactive research console.
 tmux send-keys -t "$SESSION_NAME:0.3" \
-    "sleep 3 && doge console" C-m
+    "doge console" C-m
 
 # Set balanced layout.
 tmux select-layout -t "$SESSION_NAME:0" tiled
+
+# Set pane titles for clarity.
+tmux select-pane -t "$SESSION_NAME:0.0" -T "MACHINE"
+tmux select-pane -t "$SESSION_NAME:0.1" -T "LOGS"
+tmux select-pane -t "$SESSION_NAME:0.2" -T "RUNTIME"
+tmux select-pane -t "$SESSION_NAME:0.3" -T "CONSOLE"
+
+# Enable pane borders with titles (if tmux supports it).
+tmux set-option -t "$SESSION_NAME" pane-border-status top 2>/dev/null || true
+tmux set-option -t "$SESSION_NAME" pane-border-format " #{pane_title} " 2>/dev/null || true
 
 # Select the console pane as active.
 tmux select-pane -t "$SESSION_NAME:0.3"
 
 echo "Launching tmux session..."
+echo ""
+echo "  Ctrl+B D  → detach (DOGE continues)"
+echo "  tmux a    → reattach"
 echo ""
 
 # Attach to the session.

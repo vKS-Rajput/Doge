@@ -3,6 +3,7 @@ package watch
 import (
 	"context"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -170,10 +171,10 @@ func TestIsDogeInternal(t *testing.T) {
 		path     string
 		expected bool
 	}{
-		{`C:\workspace\.doge\db.sqlite`, true},
-		{`C:\workspace\.doge\artifacts\scan.dat`, true},
-		{`C:\workspace\scans\httpx.jsonl`, false},
-		{`C:\workspace\input\targets.txt`, false},
+		{filepath.Join("workspace", ".doge", "db.sqlite"), true},
+		{filepath.Join("workspace", ".doge", "artifacts", "scan.dat"), true},
+		{filepath.Join("workspace", "scans", "httpx.jsonl"), false},
+		{filepath.Join("workspace", "input", "targets.txt"), false},
 	}
 
 	for _, tt := range tests {

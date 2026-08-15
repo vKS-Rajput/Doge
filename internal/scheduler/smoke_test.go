@@ -245,12 +245,13 @@ func TestSmokeSchedulerSurvivesToolFailure(t *testing.T) {
 
 	registry := NewToolRegistry()
 
-	// Override nmap with a failing command.
+	// Override nmap with a failing command (cross-platform).
+	failBin, failFlags := testShellFail("failing")
 	registry.Register(ToolDefinition{
 		Name:         "nmap",
-		Binary:       "cmd",
+		Binary:       failBin,
 		CaptureMode:  CaptureStdout,
-		DefaultFlags: []string{"/c", "echo failing && exit 1"},
+		DefaultFlags: failFlags,
 		Category:     CategoryRecon,
 	})
 

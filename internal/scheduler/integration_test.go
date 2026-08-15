@@ -87,14 +87,15 @@ func TestFullSchedulerExecutorChain(t *testing.T) {
 		},
 	})
 
-	// Override the nmap tool definition to use a safe command.
+	// Override the nmap tool definition to use a safe command (cross-platform).
+	echoBin, echoFlags := testShellEcho("PORT STATE SERVICE")
 	registry.Register(ToolDefinition{
 		Name:         "nmap",
-		Binary:       "cmd",
+		Binary:       echoBin,
 		OutputFormat: "text",
 		Parser:       "nmap",
 		CaptureMode:  CaptureStdout,
-		DefaultFlags: []string{"/c", "echo", "PORT STATE SERVICE"},
+		DefaultFlags: echoFlags,
 		Category:     CategoryRecon,
 	})
 
@@ -209,12 +210,13 @@ func TestExecutorPreservesOutputOnFailure(t *testing.T) {
 		Target: "127.0.0.1",
 	}
 
-	// cmd /c "echo partial-output && exit 1" — produces output then fails.
+	// Cross-platform: echo partial output then fail.
+	failBin, failFlags := testShellFail("partial-output")
 	def := ToolDefinition{
 		Name:         "failing-tool",
-		Binary:       "cmd",
+		Binary:       failBin,
 		CaptureMode:  CaptureStdout,
-		DefaultFlags: []string{"/c", "echo partial-output && exit 1"},
+		DefaultFlags: failFlags,
 	}
 
 	// Should NOT return error because there IS output despite non-zero exit.

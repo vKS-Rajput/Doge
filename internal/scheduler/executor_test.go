@@ -132,12 +132,13 @@ func TestExecutorSuccessfulExecution(t *testing.T) {
 		Target: "10.10.11.123",
 	}
 
-	// Use cmd /c echo to simulate tool output (Windows-compatible).
+	// Cross-platform: simulate tool output.
+	echoBin, echoFlags := testShellEcho("test-output")
 	def := ToolDefinition{
-		Name:        "cmd",
-		Binary:      "cmd",
+		Name:        "echo",
+		Binary:      echoBin,
 		CaptureMode: CaptureStdout,
-		DefaultFlags: []string{"/c", "echo", "test-output"},
+		DefaultFlags: echoFlags,
 	}
 
 	err := executor.Execute(context.Background(), job, def)
@@ -184,11 +185,13 @@ func TestExecutorStdoutStderrCapture(t *testing.T) {
 		Target: "10.10.11.123",
 	}
 
+	// Cross-platform: simulate tool output.
+	echoBin, echoFlags := testShellEcho("hello-from-tool")
 	def := ToolDefinition{
-		Name:        "cmd",
-		Binary:      "cmd",
+		Name:        "echo",
+		Binary:      echoBin,
 		CaptureMode: CaptureStdout,
-		DefaultFlags: []string{"/c", "echo", "hello-from-tool"},
+		DefaultFlags: echoFlags,
 	}
 
 	err := executor.Execute(context.Background(), job, def)

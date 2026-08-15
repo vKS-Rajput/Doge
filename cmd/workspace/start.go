@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -145,6 +147,23 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 			// Print status.
 			printStartupComplete(sess)
 
+			// Start state persistence for multi-terminal access.
+			absPath, _ := filepath.Abs(wsPath)
+			go func() {
+				ticker := time.NewTicker(5 * time.Second)
+				defer ticker.Stop()
+				// Save immediately on start.
+				sess.SaveState(absPath)
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						sess.SaveState(absPath)
+					}
+				}
+			}()
+
 			if headless {
 				// Headless mode: block until signal.
 				<-ctx.Done()
@@ -172,6 +191,9 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 			// Graceful stop.
 			sess.Stop()
 			eventBus.Drain()
+
+			// Clear session state file.
+			session.ClearState(absPath)
 
 			printShutdown(sess)
 			return nil

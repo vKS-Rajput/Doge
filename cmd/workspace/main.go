@@ -42,6 +42,7 @@ requiring AI. AI reasoning is available but optional.`,
 	}
 
 	root.AddCommand(
+		newStartCmd(),
 		newVersionCmd(),
 		newInitCmd(),
 		newStatusCmd(),

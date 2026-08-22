@@ -39,6 +39,13 @@ type Scheduler struct {
 	// Investigation context.
 	investigationID uuid.UUID
 
+	// Workspace path for authorization file.
+	workspacePath string
+
+	// Authorization state for non-auto-recon environments.
+	authorization    *ReconAuthorization
+	authChecked      bool // Whether we've done initial recon after approval.
+
 	// Concurrency control.
 	running sync.WaitGroup
 	cancel  context.CancelFunc
@@ -64,6 +71,7 @@ type Options struct {
 	Target          *domain.Target
 	InvestigationID uuid.UUID
 	Executor        Executor
+	WorkspacePath   string
 }
 
 // New creates a new scheduler.
@@ -76,6 +84,7 @@ func New(eventBus *bus.Bus, registry *ToolRegistry, opts Options, logger *slog.L
 		target:          opts.Target,
 		investigationID: opts.InvestigationID,
 		executor:        opts.Executor,
+		workspacePath:   opts.WorkspacePath,
 		logger:          logger,
 		cooldowns:       make(map[string]time.Time),
 	}
@@ -124,12 +133,37 @@ func (s *Scheduler) Stop() {
 // ScheduleInitialRecon creates the initial reconnaissance job
 // based on the target and policy.
 func (s *Scheduler) ScheduleInitialRecon() error {
-	if !s.policy.AutoRecon {
-		s.logger.Info("auto-recon disabled by policy, waiting for approval")
-		return nil
+	if s.policy.AutoRecon {
+		// Auto-recon: schedule immediately.
+		return s.scheduleInitialNmap()
 	}
 
-	// Create initial nmap job.
+	// Non-auto-recon: create authorization request and wait.
+	s.logger.Info("auto-recon disabled by policy, creating authorization request",
+		"environment", s.target.Environment)
+
+	auth := NewPendingAuthorization(
+		s.target.Primary,
+		string(s.target.Environment),
+	)
+	s.authorization = auth
+
+	// Save to disk so doge approvals can pick it up.
+	if s.workspacePath != "" {
+		if err := SaveAuthorization(s.workspacePath, auth); err != nil {
+			s.logger.Error("failed to save authorization request", "error", err)
+		}
+	}
+
+	s.logger.Info("recon authorization pending",
+		"target", s.target.Primary,
+		"capabilities", len(auth.RequestedCapabilities),
+	)
+
+	return nil
+}
+
+func (s *Scheduler) scheduleInitialNmap() error {
 	job := NewJob(
 		s.investigationID,
 		"nmap",
@@ -288,12 +322,81 @@ func (s *Scheduler) processLoop(ctx context.Context) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
+	// Authorization polling runs at a slower interval.
+	authTicker := time.NewTicker(2 * time.Second)
+	defer authTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-authTicker.C:
+			s.checkAuthorization()
 		case <-ticker.C:
 			s.processNextJob(ctx)
+		}
+	}
+}
+
+// checkAuthorization polls for authorization approval from another terminal.
+func (s *Scheduler) checkAuthorization() {
+	s.mu.Lock()
+	// Only poll if we're waiting for authorization.
+	if s.authorization == nil || s.authorization.Status != AuthPending {
+		s.mu.Unlock()
+		return
+	}
+	wsPath := s.workspacePath
+	s.mu.Unlock()
+
+	if wsPath == "" {
+		return
+	}
+
+	// Read authorization.json from disk (written by doge approvals).
+	auth, err := LoadAuthorization(wsPath)
+	if err != nil || auth == nil {
+		return
+	}
+
+	if auth.Status == AuthApproved && !s.authChecked {
+		s.mu.Lock()
+		s.authorization = auth
+		s.authChecked = true
+
+		// Update policy based on approved capabilities.
+		for _, cap := range auth.RequestedCapabilities {
+			if !cap.Approved {
+				continue
+			}
+			switch cap.Category {
+			case "recon":
+				s.policy.AutoRecon = true
+			case "web_enum":
+				s.policy.AutoWebEnum = true
+			case "subdomain_enum":
+				s.policy.AutoSubdomainEnum = true
+			case "fuzzing":
+				s.policy.AutoFuzzing = true
+			case "scanning":
+				s.policy.AutoScanning = true
+			}
+		}
+		// Remove approval requirements for authorized tools.
+		s.policy.RequireApprovalFor = nil
+		s.mu.Unlock()
+
+		s.logger.Info("recon authorization APPROVED",
+			"target", auth.Target,
+			"approved_by", auth.ApprovedBy,
+			"approved_tools", auth.ApprovedTools(),
+		)
+
+		// Schedule initial recon now that we're authorized.
+		if s.policy.AutoRecon {
+			if err := s.scheduleInitialNmap(); err != nil {
+				s.logger.Error("failed to schedule initial recon after approval", "error", err)
+			}
 		}
 	}
 }

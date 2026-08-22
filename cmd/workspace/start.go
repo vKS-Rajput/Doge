@@ -135,9 +135,10 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 
 			// Create session.
 			sess, err := session.New(session.Config{
-				Target:   target,
-				EventBus: eventBus,
-				Logger:   logger,
+				Target:        target,
+				EventBus:      eventBus,
+				Logger:        logger,
+				WorkspacePath: absPath,
 			})
 			if err != nil {
 				return fmt.Errorf("session creation failed: %w", err)

@@ -59,10 +59,11 @@ type Session struct {
 
 // Config holds session creation parameters.
 type Config struct {
-	Target   *domain.Target
-	EventBus *bus.Bus
-	Logger   *slog.Logger
-	Executor scheduler.Executor // nil for test mode
+	Target        *domain.Target
+	EventBus      *bus.Bus
+	Logger        *slog.Logger
+	Executor      scheduler.Executor // nil for test mode
+	WorkspacePath string             // for authorization file I/O
 }
 
 // New creates a new session for a target.
@@ -90,6 +91,7 @@ func New(cfg Config) (*Session, error) {
 		Target:          cfg.Target,
 		InvestigationID: investigationID,
 		Executor:        cfg.Executor,
+		WorkspacePath:   cfg.WorkspacePath,
 	}, logger)
 
 	return &Session{

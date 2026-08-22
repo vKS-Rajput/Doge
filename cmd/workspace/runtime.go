@@ -121,10 +121,30 @@ func printRuntimeStatus(state *session.PersistedState, alive bool, wsPath string
 	// Policy.
 	fmt.Println("Policy")
 	fmt.Printf("  %-20s %v\n", "Auto-recon:", state.AutoRecon)
+	authStatus := state.ReconAuthStatus
+	if authStatus == "" {
+		authStatus = "auto"
+	}
+	switch authStatus {
+	case "pending":
+		fmt.Printf("  %-20s \033[33m%s ⚠\033[0m\n", "Recon auth:", "PENDING — run 'doge approvals'")
+	case "approved":
+		fmt.Printf("  %-20s \033[32m%s\033[0m\n", "Recon auth:", "APPROVED")
+	case "denied":
+		fmt.Printf("  %-20s \033[31m%s\033[0m\n", "Recon auth:", "DENIED")
+	default:
+		fmt.Printf("  %-20s %s\n", "Recon auth:", "auto (no approval needed)")
+	}
 	fmt.Println()
 
-	if state.PendingApproval > 0 || state.PendingConfirm > 0 {
-		fmt.Println("⚠  Human decisions needed. Run: doge approvals")
+	needsAction := state.PendingApproval > 0 || state.PendingConfirm > 0 || authStatus == "pending"
+	if needsAction {
+		if authStatus == "pending" {
+			fmt.Println("🔐 Recon authorization required. Run: doge approvals")
+		}
+		if state.PendingApproval > 0 || state.PendingConfirm > 0 {
+			fmt.Println("⚠  Human decisions needed. Run: doge approvals")
+		}
 	}
 
 	fmt.Println("────────────────────────────────────")

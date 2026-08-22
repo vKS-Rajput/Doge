@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vKS-Rajput/doge/internal/scheduler"
 	"github.com/vKS-Rajput/doge/internal/session"
 )
 
@@ -15,14 +16,18 @@ func newApprovalsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "approvals [workspace]",
 		Short: "Human decision queue for investigation gates",
-		Long: `Interactive approval queue for DOGE epistemic gates.
+		Long: `Interactive approval queue for DOGE investigation gates.
 
-DOGE pauses at two human gates:
+DOGE pauses at three types of human gates:
 
-  1. HYPOTHESIS APPROVAL — AI has formed a hypothesis. A human must
+  1. RECON AUTHORIZATION — For authorized/other environments, a human
+     must approve what reconnaissance tools DOGE is allowed to run
+     before any tools execute.
+
+  2. HYPOTHESIS APPROVAL — AI has formed a hypothesis. A human must
      approve before controlled validation proceeds.
 
-  2. FINDING CONFIRMATION — A validated hypothesis has been promoted
+  3. FINDING CONFIRMATION — A validated hypothesis has been promoted
      to candidate finding. A human must confirm the evidence chain
      before the finding is recorded.
 
@@ -55,18 +60,54 @@ func runApprovals(state *session.PersistedState, wsPath string) error {
 	fmt.Println("────────────────────────────────────")
 	fmt.Println()
 
+	// Check for recon authorization.
+	auth, _ := scheduler.LoadAuthorization(wsPath)
+
+	hasReconPending := auth != nil && auth.Status == scheduler.AuthPending
 	totalPending := state.PendingApproval + state.PendingConfirm
+	if hasReconPending {
+		totalPending++
+	}
 
 	if totalPending == 0 {
 		fmt.Println("  ✅ No pending approvals.")
 		fmt.Println()
 		fmt.Println("  DOGE will pause here when:")
+		fmt.Println("    • Recon authorization is needed (authorized targets)")
 		fmt.Println("    • A hypothesis needs approval before validation")
 		fmt.Println("    • A candidate finding needs human confirmation")
 		fmt.Println()
 		fmt.Println("  The investigation continues autonomously until")
-		fmt.Println("  these epistemic gates are reached.")
+		fmt.Println("  these gates are reached.")
 		return nil
+	}
+
+	// Show recon authorization request.
+	if hasReconPending {
+		fmt.Println("🔐 RECON AUTHORIZATION REQUIRED")
+		fmt.Println("────────────────────────────────────")
+		fmt.Printf("  Target:      %s\n", auth.Target)
+		fmt.Printf("  Environment: %s\n", auth.Environment)
+		fmt.Println()
+		fmt.Println("  DOGE is requesting permission to run reconnaissance.")
+		fmt.Println("  No tools will execute until you authorize.")
+		fmt.Println()
+		fmt.Println("  Requested capabilities:")
+		for i, cap := range auth.RequestedCapabilities {
+			status := "[ ]"
+			if cap.Approved {
+				status = "[✓]"
+			}
+			fmt.Printf("    %d. %s %s\n", i+1, status, cap.Name)
+			fmt.Printf("       Tools: %s\n", strings.Join(cap.Tools, ", "))
+		}
+		fmt.Println()
+		fmt.Println("  Actions:")
+		fmt.Println("    authorize all          — Approve all capabilities")
+		fmt.Println("    authorize <number>     — Approve specific capability")
+		fmt.Println("    deny                   — Deny all reconnaissance")
+		fmt.Println("    details                — Show capability details")
+		fmt.Println()
 	}
 
 	// Show pending hypotheses.
@@ -74,9 +115,6 @@ func runApprovals(state *session.PersistedState, wsPath string) error {
 		fmt.Println("📋 Pending Hypothesis Approvals")
 		fmt.Println("────────────────────────────────────")
 		fmt.Printf("  %d hypotheses awaiting human review\n", state.PendingApproval)
-		fmt.Println()
-		fmt.Println("  Each hypothesis represents an AI-formed claim that")
-		fmt.Println("  requires human judgment before controlled testing.")
 		fmt.Println()
 		fmt.Println("  Actions:")
 		fmt.Println("    approve <id>  — Allow controlled validation")
@@ -90,10 +128,6 @@ func runApprovals(state *session.PersistedState, wsPath string) error {
 		fmt.Println("🏆 Candidate Findings")
 		fmt.Println("────────────────────────────────────")
 		fmt.Printf("  %d findings awaiting human confirmation\n", state.PendingConfirm)
-		fmt.Println()
-		fmt.Println("  Each candidate has passed controlled validation.")
-		fmt.Println("  A human must confirm the evidence chain is complete")
-		fmt.Println("  before the finding is formally recorded.")
 		fmt.Println()
 		fmt.Println("  Actions:")
 		fmt.Println("    confirm <id>  — Confirm this is a real finding")
@@ -126,31 +160,109 @@ func runApprovals(state *session.PersistedState, wsPath string) error {
 			fmt.Println("👋 Approval queue detached.")
 			return nil
 
+		case "authorize":
+			if auth == nil || auth.Status != scheduler.AuthPending {
+				fmt.Println("No recon authorization pending.")
+				break
+			}
+
+			if len(parts) >= 2 && strings.ToLower(parts[1]) == "all" {
+				auth.ApproveAll("researcher")
+				if err := scheduler.SaveAuthorization(wsPath, auth); err != nil {
+					fmt.Printf("Error saving authorization: %v\n", err)
+					break
+				}
+				fmt.Println()
+				fmt.Println("  ✅ ALL reconnaissance capabilities authorized!")
+				fmt.Println()
+				fmt.Println("  Approved:")
+				for _, cap := range auth.RequestedCapabilities {
+					fmt.Printf("    ✓ %s (%s)\n", cap.Name, strings.Join(cap.Tools, ", "))
+				}
+				fmt.Println()
+				fmt.Println("  The scheduler will pick this up within seconds.")
+				fmt.Println("  Watch the machine terminal or 'doge logs -f' for activity.")
+			} else if len(parts) >= 2 {
+				// Approve specific capability by number.
+				var idx int
+				if _, err := fmt.Sscanf(parts[1], "%d", &idx); err != nil || idx < 1 || idx > len(auth.RequestedCapabilities) {
+					fmt.Printf("Invalid capability number. Use 1-%d or 'all'.\n", len(auth.RequestedCapabilities))
+					break
+				}
+				if err := auth.ApproveByIndex(idx - 1); err != nil {
+					fmt.Printf("Error: %v\n", err)
+					break
+				}
+				cap := auth.RequestedCapabilities[idx-1]
+				fmt.Printf("  ✓ %s authorized (%s)\n", cap.Name, strings.Join(cap.Tools, ", "))
+				fmt.Println()
+				fmt.Println("  Use 'authorize all' to approve remaining capabilities,")
+				fmt.Println("  or approve individually and then 'authorize finalize'.")
+			} else {
+				fmt.Println("Usage: authorize all | authorize <number>")
+			}
+
+		case "deny":
+			if auth != nil && auth.Status == scheduler.AuthPending {
+				auth.Deny()
+				if err := scheduler.SaveAuthorization(wsPath, auth); err != nil {
+					fmt.Printf("Error: %v\n", err)
+					break
+				}
+				fmt.Println("  ❌ Reconnaissance authorization DENIED.")
+				fmt.Println("  DOGE will not run any tools on this target.")
+			} else {
+				fmt.Println("No recon authorization pending.")
+			}
+
+		case "details":
+			if auth != nil {
+				fmt.Println()
+				fmt.Println("  Recon Authorization Details")
+				fmt.Println("  ────────────────────────────────────")
+				fmt.Printf("  Target:      %s\n", auth.Target)
+				fmt.Printf("  Environment: %s\n", auth.Environment)
+				fmt.Printf("  Status:      %s\n", auth.Status)
+				fmt.Println()
+				for i, cap := range auth.RequestedCapabilities {
+					status := "PENDING"
+					if cap.Approved {
+						status = "APPROVED"
+					}
+					fmt.Printf("  %d. [%s] %s\n", i+1, status, cap.Name)
+					fmt.Printf("     Category: %s\n", cap.Category)
+					fmt.Printf("     Tools: %s\n", strings.Join(cap.Tools, ", "))
+				}
+				fmt.Println()
+			} else {
+				fmt.Println("No authorization data.")
+			}
+
 		case "approve":
 			if len(parts) < 2 {
 				fmt.Println("Usage: approve <hypothesis-id>")
-				continue
+				break
 			}
 			fmt.Printf("✅ Hypothesis %s approved for controlled validation.\n", parts[1])
 
 		case "reject":
 			if len(parts) < 2 {
 				fmt.Println("Usage: reject <id>")
-				continue
+				break
 			}
 			fmt.Printf("❌ Item %s rejected.\n", parts[1])
 
 		case "confirm":
 			if len(parts) < 2 {
 				fmt.Println("Usage: confirm <finding-id>")
-				continue
+				break
 			}
 			fmt.Printf("🏆 Finding %s confirmed and recorded.\n", parts[1])
 
 		case "inspect":
 			if len(parts) < 2 {
 				fmt.Println("Usage: inspect <id>")
-				continue
+				break
 			}
 			fmt.Printf("Inspecting item %s...\n", parts[1])
 			fmt.Println("  (Evidence chain would be displayed here)")
@@ -159,13 +271,30 @@ func runApprovals(state *session.PersistedState, wsPath string) error {
 			fresh, err := session.LoadState(wsPath)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
-				continue
+				break
+			}
+			freshAuth, _ := scheduler.LoadAuthorization(wsPath)
+			fmt.Printf("  Recon authorization: ")
+			if freshAuth != nil {
+				fmt.Printf("%s\n", freshAuth.Status)
+			} else {
+				fmt.Println("N/A (auto-recon)")
 			}
 			fmt.Printf("  Pending approvals: %d\n", fresh.PendingApproval)
 			fmt.Printf("  Pending confirms:  %d\n", fresh.PendingConfirm)
 
 		case "help", "?":
-			fmt.Println("Commands: approve <id>, reject <id>, confirm <id>, inspect <id>, refresh, exit")
+			fmt.Println("Commands:")
+			fmt.Println("  authorize all       — Approve all recon capabilities")
+			fmt.Println("  authorize <number>  — Approve specific capability")
+			fmt.Println("  deny                — Deny recon authorization")
+			fmt.Println("  details             — Show authorization details")
+			fmt.Println("  approve <id>        — Approve hypothesis")
+			fmt.Println("  reject <id>         — Reject item")
+			fmt.Println("  confirm <id>        — Confirm finding")
+			fmt.Println("  inspect <id>        — View evidence")
+			fmt.Println("  refresh             — Reload state")
+			fmt.Println("  exit                — Quit")
 
 		default:
 			fmt.Printf("Unknown: %s (type 'help')\n", action)

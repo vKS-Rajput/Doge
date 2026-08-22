@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vKS-Rajput/doge/internal/scheduler"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
 
@@ -60,7 +61,8 @@ type PersistedState struct {
 	JobsFailed      int `json:"jobs_failed"`
 
 	// Policy.
-	AutoRecon bool `json:"auto_recon"`
+	AutoRecon      bool   `json:"auto_recon"`
+	ReconAuthStatus string `json:"recon_auth_status"`
 
 	// Paths.
 	WorkspacePath string `json:"workspace_path"`
@@ -102,6 +104,18 @@ func (s *Session) SaveState(workspacePath string) error {
 		AutoRecon:       s.Policy.AutoRecon,
 		WorkspacePath:   workspacePath,
 		DatabasePath:    filepath.Join(workspacePath, ".doge", "workspace.db"),
+	}
+
+	// Check for authorization status.
+	if !s.Policy.AutoRecon {
+		auth, _ := scheduler.LoadAuthorization(workspacePath)
+		if auth != nil {
+			state.ReconAuthStatus = string(auth.Status)
+		} else {
+			state.ReconAuthStatus = "pending"
+		}
+	} else {
+		state.ReconAuthStatus = "auto"
 	}
 
 	dogeDir := filepath.Join(workspacePath, ".doge")

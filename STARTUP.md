@@ -6,7 +6,7 @@ Step-by-step guide to setting up and running your first DOGE investigation.
 
 ## Prerequisites
 
-- **Go 1.22+** installed
+- **Go 1.26.6+** installed ([download](https://go.dev/dl/))
 - **Linux/WSL** recommended (DOGE shells commands through `bash`)
 - A target you are **explicitly authorized** to test
 
@@ -357,6 +357,35 @@ After running a few commands, your workspace looks like:
 ├── http.json               # Your httpx output
 ├── fuzz.json               # Your ffuf output
 └── ...                     # Your other files
+```
+
+---
+
+## CI/CD Pipeline
+
+Every push to `main` or PR triggers automated checks:
+
+```
+Push / PR
+   │
+   ├── Vet + Build         (compile check, go vet, tidy)
+   ├── Tests               (Linux + Windows)
+   ├── Race Detection      (concurrent safety + coverage)
+   ├── Security            (govulncheck for known CVEs)
+   ├── Integration         (workspace lifecycle, runner, learning)
+   └── Release Builds      (linux/windows/darwin × amd64/arm64)
+```
+
+Check status: [GitHub Actions](https://github.com/vKS-Rajput/Doge/actions)
+
+### Running CI checks locally
+
+```bash
+# Same checks the pipeline runs:
+go mod tidy && git diff --exit-code go.mod go.sum   # Dependency tidiness
+go vet ./...                                         # Static analysis
+go test ./...                                        # All tests
+go test -race ./...                                  # Race detection
 ```
 
 ---

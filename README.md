@@ -169,11 +169,14 @@ pkg/
 ## Building
 
 ```bash
-# Prerequisites: Go 1.22+
+# Prerequisites: Go 1.26.6+
 go build -o doge ./cmd/workspace
 
 # Run tests
 go test ./...
+
+# Run with race detector
+go test -race ./...
 
 # Install (Linux/WSL)
 go build -o /tmp/doge ./cmd/workspace && sudo cp /tmp/doge /usr/local/bin/doge
@@ -208,6 +211,23 @@ go build -o /tmp/doge ./cmd/workspace && sudo cp /tmp/doge /usr/local/bin/doge
 | `doge status` | Show workspace status |
 | `doge runtime` | Show session state |
 | `doge version` | Print version |
+
+## CI/CD
+
+[![DOGE CI](https://github.com/vKS-Rajput/Doge/actions/workflows/ci.yml/badge.svg)](https://github.com/vKS-Rajput/Doge/actions/workflows/ci.yml)
+
+Every push and PR triggers a 6-stage pipeline:
+
+| Stage | What It Does |
+|-------|-------------|
+| **Vet + Build** | Compile check, `go vet`, dependency tidiness |
+| **Tests** | Full test suite on Linux + Windows |
+| **Race Detection** | Tests with `-race` flag + coverage report |
+| **Security** | `govulncheck` for known Go vulnerabilities |
+| **Integration** | Workspace lifecycle, runner pipeline, learning replay |
+| **Release Builds** | Cross-platform binaries (linux/windows/darwin × amd64/arm64) |
+
+Dependabot keeps Go modules and Actions up to date weekly.
 
 ## Safety Model
 

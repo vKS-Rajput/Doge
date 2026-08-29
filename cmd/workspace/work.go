@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,20 +147,25 @@ func printWorkBanner(target, env, wsPath string) {
 }
 
 func runWorkShell(application *app.App, wsPath, target, env string, journalStore *journal.Store, learner *learning.Learner, learningMem *learning.Memory) error {
-	scanner := bufio.NewScanner(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 	commandNum := 0
 
 	for {
 		fmt.Printf("DOGE:%s $ ", target)
-		if !scanner.Scan() {
-			// Check for scanner error vs clean EOF (e.g. Ctrl+D).
-			if err := scanner.Err(); err != nil {
-				fmt.Fprintf(os.Stderr, "\n  ⚠ stdin error: %v\n", err)
+
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			// EOF = Ctrl+D or terminal closed. This is the ONLY
+			// legitimate way to exit the loop besides "exit".
+			if err == io.EOF {
+				fmt.Println("\n  EOF received — exiting.")
+			} else {
+				fmt.Fprintf(os.Stderr, "\n  ⚠ stdin read error: %v\n", err)
 			}
 			break
 		}
 
-		input := strings.TrimSpace(scanner.Text())
+		input := strings.TrimSpace(line)
 		if input == "" {
 			continue
 		}

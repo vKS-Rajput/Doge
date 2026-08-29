@@ -105,12 +105,12 @@ func Run(command string, workDir string, stdout, stderr io.Writer) *RunResult {
 	}
 
 	// IMPORTANT: Do NOT pass os.Stdin to child processes.
-	// The DOGE research shell owns stdin via bufio.Scanner.
-	// If a child process inherits os.Stdin, it can consume/close
-	// the pipe, causing scanner.Scan() to return false (EOF)
-	// and terminating the entire research session.
-	// Child processes get nil stdin (reads return EOF immediately).
+	// The DOGE research shell owns stdin via bufio.Reader.
+	// Child processes get /dev/null as stdin.
 	cmd.Stdin = nil
+
+	// Isolate child process group (platform-specific).
+	setProcAttr(cmd)
 
 	// Execute.
 	err := cmd.Run()

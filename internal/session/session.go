@@ -25,6 +25,16 @@ const (
 	StatusStopped  SessionStatus = "stopped"
 )
 
+// SessionMode determines how DOGE operates.
+type SessionMode string
+
+const (
+	// ModeHunt: DOGE runs tools autonomously (HTB/lab).
+	ModeHunt SessionMode = "hunt"
+	// ModeResearch: YOU run tools, DOGE observes and analyzes.
+	ModeResearch SessionMode = "research"
+)
+
 // Session is the persistent DOGE runtime. It owns every subsystem
 // and keeps the investigation alive independently of any UI.
 //
@@ -49,6 +59,7 @@ type Session struct {
 
 	// Config.
 	Policy scheduler.ResearchPolicy
+	Mode   SessionMode
 	Logger *slog.Logger
 
 	// Runtime.
@@ -62,8 +73,9 @@ type Config struct {
 	Target        *domain.Target
 	EventBus      *bus.Bus
 	Logger        *slog.Logger
-	Executor      scheduler.Executor // nil for test mode
+	Executor      scheduler.Executor // nil for test mode or research mode
 	WorkspacePath string             // for authorization file I/O
+	Mode          SessionMode        // "research" or "hunt"
 }
 
 // New creates a new session for a target.
@@ -75,9 +87,21 @@ func New(cfg Config) (*Session, error) {
 	investigationID := uuid.New()
 	policy := scheduler.DefaultPolicy(cfg.Target.Environment)
 
+	mode := cfg.Mode
+	if mode == "" {
+		mode = ModeHunt
+	}
+
 	logger := cfg.Logger
 	if logger == nil {
 		logger = slog.Default()
+	}
+
+	// In research mode, executor is nil — DOGE observes but doesn't run tools.
+	executor := cfg.Executor
+	if mode == ModeResearch {
+		executor = nil
+		logger.Info("research mode: DOGE will observe and analyze, not execute tools")
 	}
 
 	registry := scheduler.NewToolRegistry()
@@ -90,7 +114,7 @@ func New(cfg Config) (*Session, error) {
 		Policy:          policy,
 		Target:          cfg.Target,
 		InvestigationID: investigationID,
-		Executor:        cfg.Executor,
+		Executor:        executor,
 		WorkspacePath:   cfg.WorkspacePath,
 	}, logger)
 
@@ -103,6 +127,7 @@ func New(cfg Config) (*Session, error) {
 		Scheduler:       sched,
 		Controller:      controller,
 		Policy:          policy,
+		Mode:            mode,
 		Logger:          logger,
 		status:          StatusStarting,
 	}, nil

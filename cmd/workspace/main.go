@@ -64,6 +64,12 @@ requiring AI. AI reasoning is available but optional.`,
 		newConsoleCmd(),
 		newLogsCmd(),
 		newApprovalsCmd(),
+		// v1.2: Research Copilot.
+		newIngestCmd(),
+		newJournalCmd(),
+		newNoteCmd(),
+		newCoverageCmd(),
+		newGapsCmd(),
 	)
 
 	return root

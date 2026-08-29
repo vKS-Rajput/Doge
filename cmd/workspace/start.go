@@ -28,6 +28,7 @@ import (
 func newStartCmd() *cobra.Command {
 	var targetFlag string
 	var envFlag string
+	var modeFlag string
 	var headless bool
 
 	cmd := &cobra.Command{
@@ -35,27 +36,18 @@ func newStartCmd() *cobra.Command {
 		Short: "Start DOGE investigation machine",
 		Long: `Start DOGE as a persistent investigation machine.
 
-DOGE owns the investigation session. It automatically:
-  • Discovers services (nmap)
-  • Probes HTTP (httpx)
-  • Crawls surfaces (katana)
-  • Enumerates directories (ffuf)
-  • Scans vulnerabilities (nuclei)
-  • Correlates evidence
-  • Detects novelty
-  • Generates research opportunities
-  • Produces AI hypotheses
-  • Waits for YOUR approval at human gates
+Modes:
+  hunt (default for htb/lab):
+    DOGE runs tools autonomously. You supervise.
 
-Interactive:
-  doge start
+  research (default for authorized):
+    YOU run tools. DOGE observes, analyzes, remembers, recommends.
+    Use 'doge ingest' to feed tool output into DOGE.
 
-Quick start:
+Examples:
   doge start --target 10.10.11.123 --env htb
-  doge start myworkspace --target 10.10.11.123 --env htb
-
-The TUI attaches automatically. Close it without stopping DOGE
-by pressing 'q'. Ctrl+C stops the entire machine.`,
+  doge start --target veeza.ai --env authorized --mode research
+  doge start --target veeza.ai --env authorized --mode research --headless`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Determine workspace path.
@@ -133,12 +125,30 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 			})
 			eventBus.Start()
 
+			// Determine mode.
+			var mode session.SessionMode
+			switch strings.ToLower(modeFlag) {
+			case "research":
+				mode = session.ModeResearch
+			case "hunt":
+				mode = session.ModeHunt
+			default:
+				// Default: research for authorized/other, hunt for htb/lab/owned.
+				switch env {
+				case domain.EnvAuthorized, domain.EnvOther:
+					mode = session.ModeResearch
+				default:
+					mode = session.ModeHunt
+				}
+			}
+
 			// Create session.
 			sess, err := session.New(session.Config{
 				Target:        target,
 				EventBus:      eventBus,
 				Logger:        logger,
 				WorkspacePath: absPath,
+				Mode:          mode,
 			})
 			if err != nil {
 				return fmt.Errorf("session creation failed: %w", err)
@@ -221,6 +231,7 @@ by pressing 'q'. Ctrl+C stops the entire machine.`,
 
 	cmd.Flags().StringVar(&targetFlag, "target", "", "primary target (IP, domain, or URL)")
 	cmd.Flags().StringVar(&envFlag, "env", "htb", "environment (htb, lab, owned, authorized, other)")
+	cmd.Flags().StringVar(&modeFlag, "mode", "", "operating mode (research, hunt). Defaults: research for authorized, hunt for htb/lab")
 	cmd.Flags().BoolVar(&headless, "headless", false, "run without TUI")
 
 	return cmd
@@ -306,12 +317,21 @@ func printStartupComplete(sess *session.Session) {
 	fmt.Println("  [✓] Event bus")
 	fmt.Println("  [✓] Orchestrator")
 	fmt.Println("  [✓] Pipeline handlers")
-	fmt.Println("  [✓] Scheduler")
+	if sess.Mode == session.ModeResearch {
+		fmt.Println("  [✓] Research mode (you run tools, DOGE analyzes)")
+	} else {
+		fmt.Println("  [✓] Scheduler")
+	}
 	fmt.Println("  [✓] TUI")
 	fmt.Println()
+	fmt.Printf("  Mode: %s\n", sess.Mode)
 	fmt.Printf("  Phase: %s\n", sess.Controller.Phase)
 	fmt.Printf("  Policy: auto-recon=%v\n", sess.Policy.AutoRecon)
 	fmt.Println()
+	if sess.Mode == session.ModeResearch {
+		fmt.Println("  Use 'doge ingest <file>' to feed tool output.")
+		fmt.Println()
+	}
 	fmt.Println("  Status: ACTIVE")
 	fmt.Println()
 }

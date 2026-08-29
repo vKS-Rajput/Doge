@@ -54,7 +54,7 @@ Works from any terminal attached to the same workspace.`,
 
 func printRuntimeStatus(state *session.PersistedState, alive bool, wsPath string) {
 	fmt.Println()
-	fmt.Println("🐕 DOGE v1.1")
+	fmt.Println("🐕 DOGE v1.2")
 	fmt.Println("────────────────────────────────────")
 	fmt.Println()
 
@@ -79,6 +79,16 @@ func printRuntimeStatus(state *session.PersistedState, alive bool, wsPath string
 	fmt.Printf("  %-20s %s\n", "Phase:", state.Phase)
 	fmt.Printf("  %-20s %s\n", "Summary:", state.PhaseSummary)
 	fmt.Printf("  %-20s %d\n", "PID:", state.PID)
+	if state.Mode != "" {
+		switch state.Mode {
+		case "research":
+			fmt.Printf("  %-20s \033[36m%s\033[0m\n", "Mode:", "RESEARCH (you run tools)")
+		case "hunt":
+			fmt.Printf("  %-20s \033[32m%s\033[0m\n", "Mode:", "HUNT (autonomous)")
+		default:
+			fmt.Printf("  %-20s %s\n", "Mode:", state.Mode)
+		}
+	}
 	fmt.Println()
 
 	// Jobs.
@@ -149,6 +159,17 @@ func printRuntimeStatus(state *session.PersistedState, alive bool, wsPath string
 
 	fmt.Println("────────────────────────────────────")
 	fmt.Println()
+
+	// Research mode hints.
+	if state.Mode == "research" {
+		fmt.Println("📓 Research mode commands:")
+		fmt.Println("   doge ingest <file>    Feed tool output")
+		fmt.Println("   doge note '...'       Record observation")
+		fmt.Println("   doge coverage         View coverage")
+		fmt.Println("   doge gaps             View gaps")
+		fmt.Println("   doge journal          View history")
+		fmt.Println()
+	}
 }
 
 func formatDuration(d time.Duration) string {

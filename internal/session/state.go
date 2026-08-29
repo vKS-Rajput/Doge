@@ -61,8 +61,9 @@ type PersistedState struct {
 	JobsFailed      int `json:"jobs_failed"`
 
 	// Policy.
-	AutoRecon      bool   `json:"auto_recon"`
+	AutoRecon       bool   `json:"auto_recon"`
 	ReconAuthStatus string `json:"recon_auth_status"`
+	Mode            string `json:"mode"`
 
 	// Paths.
 	WorkspacePath string `json:"workspace_path"`
@@ -102,6 +103,7 @@ func (s *Session) SaveState(workspacePath string) error {
 		JobsCompleted:   snap.JobsCompleted,
 		JobsFailed:      snap.JobsFailed,
 		AutoRecon:       s.Policy.AutoRecon,
+		Mode:            string(s.Mode),
 		WorkspacePath:   workspacePath,
 		DatabasePath:    filepath.Join(workspacePath, ".doge", "workspace.db"),
 	}

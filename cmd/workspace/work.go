@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -507,11 +508,11 @@ func queryRecentObservations(application *app.App, limit int) []domain.Observati
 			continue
 		}
 		obs.ID, _ = uuid.Parse(id)
-		// Parse data JSON.
 		if dataStr != "" {
-			obs.Data = make(map[string]any)
-			// Simple JSON parse.
-			// Full json.Unmarshal would be better but keeping it simple.
+			var data map[string]any
+			if json.Unmarshal([]byte(dataStr), &data) == nil {
+				obs.Data = data
+			}
 		}
 		observations = append(observations, obs)
 	}

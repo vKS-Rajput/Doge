@@ -190,20 +190,45 @@ func detectShell() (string, string) {
 	return "bash", "-c"
 }
 
-// snapshotDir captures modification times of all files in a directory.
+// MaxCaptureFileSize is the largest file DOGE will auto-capture (50 MB).
+const MaxCaptureFileSize = 50 * 1024 * 1024
+
+// snapshotDir captures modification times of files in the workspace.
+// Safety: skips .doge, .git, node_modules, hidden dirs, and large files.
+// Only walks 3 directory levels deep to avoid scanning huge trees.
 func snapshotDir(dir string) fileSnapshot {
 	snap := make(fileSnapshot)
+	baseDepth := strings.Count(filepath.ToSlash(dir), "/")
+
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		// Skip .doge directory.
-		if info.IsDir() && info.Name() == ".doge" {
-			return filepath.SkipDir
-		}
+
+		// Skip dangerous/irrelevant directories.
 		if info.IsDir() {
+			name := info.Name()
+			if name == ".doge" || name == ".git" || name == "node_modules" ||
+				name == "__pycache__" || name == ".venv" {
+				return filepath.SkipDir
+			}
+			// Skip hidden directories (except workspace root).
+			if len(name) > 1 && name[0] == '.' && path != dir {
+				return filepath.SkipDir
+			}
+			// Limit depth to 3 levels.
+			depth := strings.Count(filepath.ToSlash(path), "/") - baseDepth
+			if depth > 3 {
+				return filepath.SkipDir
+			}
 			return nil
 		}
+
+		// Skip files that are too large.
+		if info.Size() > MaxCaptureFileSize {
+			return nil
+		}
+
 		rel, err := filepath.Rel(dir, path)
 		if err != nil {
 			return nil

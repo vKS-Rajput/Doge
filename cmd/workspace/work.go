@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -277,7 +278,7 @@ func autoIngest(application *app.App, result *runner.RunResult, wsPath string, j
 	// 1. Try to ingest any new files.
 	for _, newFile := range result.NewFiles {
 		filePath := filepath.Join(wsPath, newFile)
-		importResult, err := application.Import(nil, filePath, application.DefaultProjectID)
+		importResult, err := application.Import(context.Background(), filePath, application.DefaultProjectID)
 		if err != nil {
 			continue
 		}

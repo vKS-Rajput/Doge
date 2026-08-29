@@ -64,7 +64,11 @@ requiring AI. AI reasoning is available but optional.`,
 		newConsoleCmd(),
 		newLogsCmd(),
 		newApprovalsCmd(),
-		// v1.2: Research Copilot.
+		// v1.2: Research Copilot — primary commands.
+		newWorkCmd(),
+		newMonitorCmd(),
+		newNotebookCmd(),
+		// v1.2: Secondary/fallback commands.
 		newIngestCmd(),
 		newJournalCmd(),
 		newNoteCmd(),

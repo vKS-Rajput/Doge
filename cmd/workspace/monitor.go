@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/vKS-Rajput/doge/internal/coverage"
@@ -16,7 +18,467 @@ import (
 	"github.com/vKS-Rajput/doge/internal/session"
 )
 
-// newMonitorCmd creates the 'monitor' command — the unified live dashboard.
+// ─── Monitor State Machine ─────────────────────────────────────────
+// Phase 1: RUNNING only. Phase 2 adds GATE, WAITING, ERROR.
+
+type monitorState int
+
+const (
+	stateRunning monitorState = iota
+	// Phase 2:
+	// stateGate
+	// stateWaiting
+	// stateError
+)
+
+// ─── Color Palette (Tokyo Night) ────────────────────────────────────
+
+var (
+	mColorBg      = lipgloss.Color("#1a1b26")
+	mColorFg      = lipgloss.Color("#c0caf5")
+	mColorDim     = lipgloss.Color("#565f89")
+	mColorBorder  = lipgloss.Color("#3b4261")
+	mColorAccent  = lipgloss.Color("#7aa2f7")
+	mColorSuccess = lipgloss.Color("#9ece6a")
+	mColorWarning = lipgloss.Color("#e0af68")
+	mColorError   = lipgloss.Color("#f7768e")
+	mColorHigh    = lipgloss.Color("#ff9e64")
+	mColorInfo    = lipgloss.Color("#7dcfff")
+	mColorSurface = lipgloss.Color("#24283b")
+)
+
+// ─── Styles ─────────────────────────────────────────────────────────
+
+func panelStyle(width int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(mColorBorder).
+		Padding(0, 1).
+		Width(width)
+}
+
+func headerPanelStyle(width int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(mColorAccent).
+		Padding(0, 1).
+		Width(width).
+		Bold(true)
+}
+
+var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(mColorAccent)
+
+	dimStyle = lipgloss.NewStyle().
+			Foreground(mColorDim)
+
+	brightStyle = lipgloss.NewStyle().
+			Foreground(mColorFg)
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(mColorSuccess)
+
+	warningStyle = lipgloss.NewStyle().
+			Foreground(mColorWarning)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(mColorError)
+
+	accentStyle = lipgloss.NewStyle().
+			Foreground(mColorAccent).
+			Bold(true)
+
+	statusBarStyle = lipgloss.NewStyle().
+			Foreground(mColorDim).
+			Padding(0, 1)
+)
+
+// ─── Bubble Tea Model ───────────────────────────────────────────────
+
+type monitorModel struct {
+	wsPath    string
+	width     int
+	height    int
+	state     monitorState
+	quitting  bool
+	lastError error
+
+	// Data (refreshed every tick).
+	sessionState *session.PersistedState
+	sessionAlive bool
+	entries      []journal.Execution
+	covReport    *coverage.Report
+	patternCount int
+	outcomeCount int
+	eventCount   int
+	patternList  []learning.ResearchPattern
+	projectID    uuid.UUID
+
+	// DB kept open for the monitor lifetime.
+	db *sql.DB
+}
+
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func newMonitorModel(wsPath string) monitorModel {
+	m := monitorModel{
+		wsPath: wsPath,
+		state:  stateRunning,
+		width:  80,
+		height: 24,
+	}
+
+	// Open DB once.
+	dbPath := filepath.Join(wsPath, ".doge", "workspace.db")
+	db, _ := sql.Open("sqlite", dbPath)
+	m.db = db
+
+	// Initial data load.
+	m.refresh()
+	return m
+}
+
+func (m *monitorModel) refresh() {
+	// Load session state.
+	m.sessionState, _ = session.LoadState(m.wsPath)
+	m.sessionAlive = session.IsSessionRunning(m.wsPath)
+
+	if m.db == nil {
+		return
+	}
+
+	// Get project ID.
+	m.projectID = getProjectID(m.sessionState, m.db)
+
+	// Journal.
+	jStore := journal.NewStore(m.db)
+	jStore.EnsureTable()
+	m.entries, _ = jStore.Recent(m.projectID, 8)
+
+	// Coverage.
+	covEngine := coverage.NewEngine(m.db)
+	m.covReport, _ = covEngine.Analyze(m.projectID)
+
+	// Learning.
+	mem := learning.NewMemory(m.db)
+	mem.EnsureTable()
+	m.patternCount = mem.PatternCount()
+	m.outcomeCount = mem.OutcomeCount()
+	m.eventCount = mem.EventCount()
+	if m.patternCount > 0 {
+		m.patternList, _ = mem.AllPatterns()
+	}
+}
+
+// ─── tea.Model implementation ───────────────────────────────────────
+
+func (m monitorModel) Init() tea.Cmd {
+	return tickCmd()
+}
+
+func (m monitorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		}
+		// Phase 2: handle 1-4, A/R/D/V for gate decisions.
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+	case tickMsg:
+		m.refresh()
+		return m, tickCmd()
+	}
+
+	return m, nil
+}
+
+func (m monitorModel) View() string {
+	if m.quitting {
+		return "\n  🐕 DOGE Monitor closed.\n\n"
+	}
+
+	// Panel width = terminal width minus some margin, capped.
+	pw := m.width - 2
+	if pw < 40 {
+		pw = 40
+	}
+	if pw > 100 {
+		pw = 100
+	}
+
+	var sections []string
+
+	// ── Header ──
+	sections = append(sections, m.renderHeader(pw))
+
+	// ── Live Activity ──
+	sections = append(sections, m.renderActivity(pw))
+
+	// ── Coverage ──
+	sections = append(sections, m.renderCoverage(pw))
+
+	// ── Investigate Next ──
+	sections = append(sections, m.renderGaps(pw))
+
+	// ── Research Memory ──
+	sections = append(sections, m.renderMemory(pw))
+
+	// ── Status Bar ──
+	sections = append(sections, m.renderStatusBar(pw))
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+// ─── Panel Renderers ────────────────────────────────────────────────
+
+func (m monitorModel) renderHeader(w int) string {
+	var b strings.Builder
+
+	left := "  🐕 DOGE MONITOR"
+
+	var right string
+	if m.sessionState != nil {
+		mode := strings.ToUpper(m.sessionState.Mode)
+		if mode == "" {
+			mode = "RESEARCH"
+		}
+		right = dimStyle.Render(mode)
+	}
+
+	// Second line: target + status + runtime.
+	var line2 strings.Builder
+	if m.sessionState != nil {
+		line2.WriteString("  Target: ")
+		line2.WriteString(accentStyle.Render(m.sessionState.Target))
+		line2.WriteString("    ")
+
+		if m.sessionAlive {
+			line2.WriteString(successStyle.Render("● ACTIVE"))
+		} else {
+			line2.WriteString(warningStyle.Render("○ IDLE"))
+		}
+
+		if !m.sessionState.StartedAt.IsZero() {
+			line2.WriteString("    ")
+			line2.WriteString(dimStyle.Render(formatDuration(time.Since(m.sessionState.StartedAt))))
+		}
+	} else {
+		line2.WriteString("  No active session")
+		line2.WriteString(dimStyle.Render("  — Start with: doge work --target <target> --env <env>"))
+	}
+
+	// Pad the header line.
+	headerLine := titleStyle.Render(left)
+	innerW := w - 4 // Account for border + padding.
+	gap := innerW - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		gap = 1
+	}
+	headerLine += strings.Repeat(" ", gap) + right
+
+	b.WriteString(headerLine)
+	b.WriteString("\n")
+	b.WriteString(line2.String())
+
+	return headerPanelStyle(w).Render(b.String())
+}
+
+func (m monitorModel) renderActivity(w int) string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("  LIVE ACTIVITY"))
+	b.WriteString("\n")
+
+	if len(m.entries) == 0 {
+		b.WriteString(dimStyle.Render("  No commands recorded yet."))
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render("  Use 'doge work' to start investigating."))
+	} else {
+		for _, e := range m.entries {
+			ts := dimStyle.Render(e.IngestedAt.Format("15:04:05"))
+			cmd := e.Command
+			if cmd == "" {
+				cmd = e.Tool
+			}
+			if len(cmd) > 45 {
+				cmd = cmd[:42] + "..."
+			}
+
+			var status string
+			if e.ExitCode == 0 {
+				status = successStyle.Render("✓")
+			} else {
+				status = errorStyle.Render(fmt.Sprintf("⚠ exit %d", e.ExitCode))
+			}
+
+			line := fmt.Sprintf("  %s  %s %s", ts, status, brightStyle.Render(cmd))
+			if e.Observations > 0 {
+				line += dimStyle.Render(fmt.Sprintf(" → %d obs", e.Observations))
+			}
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+	}
+
+	return panelStyle(w).Render(b.String())
+}
+
+func (m monitorModel) renderCoverage(w int) string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("  COVERAGE"))
+	b.WriteString("\n")
+
+	if m.covReport == nil {
+		b.WriteString(dimStyle.Render("  No coverage data yet."))
+	} else {
+		for _, c := range m.covReport.Categories {
+			name := categoryDisplayName(c.Category)
+			pct := int(math.Round(c.Score * 100))
+			bar := renderProgressBar(c.Score, 12)
+			padding := strings.Repeat(" ", max(1, 16-len(name)))
+			b.WriteString(fmt.Sprintf("  %s%s%s %3d%%\n", brightStyle.Render(name), padding, bar, pct))
+		}
+
+		b.WriteString("\n")
+		totalPct := int(math.Round(m.covReport.TotalScore * 100))
+		summary := fmt.Sprintf("  Overall: %d%%  │  Obs: %d  │  Entities: %d",
+			totalPct, m.covReport.TotalObservations, m.covReport.TotalEntities)
+		b.WriteString(accentStyle.Render(summary))
+	}
+
+	return panelStyle(w).Render(b.String())
+}
+
+func (m monitorModel) renderGaps(w int) string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("  🔥 INVESTIGATE NEXT"))
+	b.WriteString("\n")
+
+	if m.covReport == nil {
+		b.WriteString(dimStyle.Render("  Start investigating to see gaps."))
+		return panelStyle(w).Render(b.String())
+	}
+
+	gapNum := 0
+	for _, c := range m.covReport.Categories {
+		if c.Score >= 0.8 || gapNum >= 3 {
+			continue
+		}
+		gapNum++
+		name := categoryDisplayName(c.Category)
+		pct := int(math.Round(c.Score * 100))
+
+		var priorityStr string
+		if c.Score < 0.2 {
+			priorityStr = errorStyle.Render("🔴 CRITICAL")
+		} else if c.Score < 0.5 {
+			priorityStr = warningStyle.Render("🟡 HIGH")
+		} else {
+			priorityStr = successStyle.Render("🟢 MEDIUM")
+		}
+
+		b.WriteString(fmt.Sprintf("  #%d  %s (%d%%)  %s\n",
+			gapNum, brightStyle.Render(name), pct, priorityStr))
+
+		suggestions := categorySuggestions(c.Category, c.Score)
+		if len(suggestions) > 0 {
+			b.WriteString(fmt.Sprintf("      %s\n", dimStyle.Render("→ "+suggestions[0])))
+		}
+	}
+
+	if gapNum == 0 {
+		b.WriteString(successStyle.Render("  ✅ All categories above 80%."))
+	}
+
+	return panelStyle(w).Render(b.String())
+}
+
+func (m monitorModel) renderMemory(w int) string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("  🧠 RESEARCH MEMORY"))
+	b.WriteString("\n")
+
+	summary := fmt.Sprintf("  Patterns: %d   │   Outcomes: %d   │   Events: %d",
+		m.patternCount, m.outcomeCount, m.eventCount)
+	b.WriteString(brightStyle.Render(summary))
+
+	if len(m.patternList) > 0 {
+		b.WriteString("\n")
+		shown := 0
+		for _, p := range m.patternList {
+			if shown >= 2 || p.Confidence < 0.2 {
+				continue
+			}
+			shown++
+			b.WriteString(fmt.Sprintf("\n  • %s\n", brightStyle.Render(p.Description)))
+			b.WriteString(fmt.Sprintf("    %s",
+				dimStyle.Render(fmt.Sprintf("Confidence: %.0f%% | Seen: %d times", p.Confidence*100, p.Occurrences))))
+		}
+	}
+
+	return panelStyle(w).Render(b.String())
+}
+
+func (m monitorModel) renderStatusBar(w int) string {
+	ts := time.Now().Format("15:04:05")
+	return statusBarStyle.Render(
+		fmt.Sprintf("  Updated: %s   │   q to quit", ts),
+	)
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
+func renderProgressBar(score float64, width int) string {
+	filled := int(math.Round(score * float64(width)))
+	if filled > width {
+		filled = width
+	}
+
+	var barColor lipgloss.Color
+	switch {
+	case score < 0.2:
+		barColor = mColorError
+	case score < 0.5:
+		barColor = mColorHigh
+	case score < 0.8:
+		barColor = mColorWarning
+	default:
+		barColor = mColorSuccess
+	}
+
+	filledStyle := lipgloss.NewStyle().Foreground(barColor)
+	emptyStyle := lipgloss.NewStyle().Foreground(mColorDim)
+
+	return filledStyle.Render(strings.Repeat("█", filled)) +
+		emptyStyle.Render(strings.Repeat("░", width-filled))
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// ─── Command ────────────────────────────────────────────────────────
+
 func newMonitorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "monitor [workspace]",
@@ -42,242 +504,16 @@ No separate approvals, logs, runtime, or coverage terminals needed.`,
 			}
 			absPath, _ := filepath.Abs(wsPath)
 
-			return runMonitor(absPath)
+			model := newMonitorModel(absPath)
+			p := tea.NewProgram(model, tea.WithAltScreen())
+			_, err := p.Run()
+			if model.db != nil {
+				model.db.Close()
+			}
+			return err
 		},
 	}
 	return cmd
-}
-
-func runMonitor(wsPath string) error {
-	// Initial render.
-	if err := renderMonitor(wsPath); err != nil {
-		return err
-	}
-
-	// Refresh loop.
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		// Clear screen (ANSI escape).
-		fmt.Print("\033[2J\033[H")
-		if err := renderMonitor(wsPath); err != nil {
-			// If workspace disappears, keep trying.
-			fmt.Println("🐕 DOGE Monitor — Waiting for workspace...")
-		}
-	}
-
-	return nil
-}
-
-func renderMonitor(wsPath string) error {
-	state, err := session.LoadState(wsPath)
-
-	// Open DB for queries.
-	dbPath := filepath.Join(wsPath, ".doge", "workspace.db")
-	db, _ := sql.Open("sqlite", dbPath)
-	if db != nil {
-		defer db.Close()
-	}
-
-	// ──── Header ────
-	fmt.Println()
-	fmt.Println("🐕 DOGE MONITOR")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-
-	// ──── Target ────
-	fmt.Println("TARGET")
-	if state != nil && err == nil {
-		fmt.Printf("  %s\n", state.Target)
-		fmt.Printf("  Scope: %s\n", strings.ToUpper(string(state.Environment)))
-		if state.Mode != "" {
-			fmt.Printf("  Mode:  %s\n", strings.ToUpper(state.Mode))
-		}
-		alive := session.IsSessionRunning(wsPath)
-		if alive {
-			fmt.Printf("  Session: \033[32mACTIVE\033[0m\n")
-		} else {
-			fmt.Printf("  Session: \033[33mIDLE\033[0m\n")
-		}
-		if !state.StartedAt.IsZero() {
-			fmt.Printf("  Runtime: %s\n", formatDuration(time.Since(state.StartedAt)))
-		}
-	} else {
-		fmt.Println("  No active session")
-		fmt.Println("  Start with: doge work --target <target> --env authorized")
-	}
-	fmt.Println()
-
-	if db == nil {
-		return nil
-	}
-
-	// ──── Live Activity ────
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-	fmt.Println("LIVE ACTIVITY")
-	fmt.Println()
-
-	journalStore := journal.NewStore(db)
-	journalStore.EnsureTable()
-
-	projectID := getProjectID(state, db)
-	entries, _ := journalStore.Recent(projectID, 8)
-
-	if len(entries) == 0 {
-		fmt.Println("  No commands recorded yet.")
-		fmt.Println("  Use 'doge work' to start investigating.")
-	} else {
-		for _, e := range entries {
-			ts := e.IngestedAt.Format("15:04:05")
-			cmd := e.Command
-			if cmd == "" {
-				cmd = e.Tool
-			}
-			if len(cmd) > 50 {
-				cmd = cmd[:47] + "..."
-			}
-			if e.ExitCode == 0 {
-				fmt.Printf("  %s  ✓ %s", ts, cmd)
-			} else {
-				fmt.Printf("  %s  ⚠ %s (exit %d)", ts, cmd, e.ExitCode)
-			}
-			if e.Observations > 0 {
-				fmt.Printf(" → %d obs", e.Observations)
-			}
-			fmt.Println()
-		}
-	}
-	fmt.Println()
-
-	// ──── Coverage ────
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-	fmt.Println("COVERAGE")
-	fmt.Println()
-
-	covEngine := coverage.NewEngine(db)
-	report, covErr := covEngine.Analyze(projectID)
-
-	if covErr == nil && report != nil {
-		for _, c := range report.Categories {
-			name := categoryDisplayName(c.Category)
-			pct := int(math.Round(c.Score * 100))
-			bar := progressBar(c.Score, 15)
-			padding := strings.Repeat(" ", 16-len(name))
-			fmt.Printf("  %s%s %s %3d%%\n", name, padding, bar, pct)
-		}
-		fmt.Println()
-		totalPct := int(math.Round(report.TotalScore * 100))
-		fmt.Printf("  Overall: %d%% | Observations: %d | Entities: %d\n",
-			totalPct, report.TotalObservations, report.TotalEntities)
-	} else {
-		fmt.Println("  No coverage data yet.")
-	}
-	fmt.Println()
-
-	// ──── Investigation Gaps ────
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-	fmt.Println("🔥 INVESTIGATE NEXT")
-	fmt.Println()
-
-	if covErr == nil && report != nil {
-		gapNum := 0
-		for _, c := range report.Categories {
-			if c.Score >= 0.8 || gapNum >= 5 {
-				continue
-			}
-			gapNum++
-			name := categoryDisplayName(c.Category)
-			pct := int(math.Round(c.Score * 100))
-
-			var priority string
-			if c.Score < 0.2 {
-				priority = "🔴 CRITICAL"
-			} else if c.Score < 0.5 {
-				priority = "🟡 HIGH"
-			} else {
-				priority = "🟢 MEDIUM"
-			}
-
-			fmt.Printf("  #%d  %s (%d%%)\n", gapNum, name, pct)
-			fmt.Printf("      %s\n", priority)
-
-			suggestions := categorySuggestions(c.Category, c.Score)
-			if len(suggestions) > 0 {
-				fmt.Printf("      → %s\n", suggestions[0])
-			}
-			fmt.Println()
-		}
-		if gapNum == 0 {
-			fmt.Println("  ✅ All categories above 80%.")
-		}
-	} else {
-		fmt.Println("  Start investigating to see gaps.")
-	}
-	fmt.Println()
-
-	// ──── Learning ────
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
-	fmt.Println("🧠 RESEARCH MEMORY")
-	fmt.Println()
-
-	learningMem := learning.NewMemory(db)
-	learningMem.EnsureTable()
-
-	patternCount := learningMem.PatternCount()
-	outcomeCount := learningMem.OutcomeCount()
-	eventCount := learningMem.EventCount()
-
-	fmt.Printf("  Patterns:     %d\n", patternCount)
-	fmt.Printf("  Outcomes:     %d\n", outcomeCount)
-	fmt.Printf("  Events:       %d\n", eventCount)
-
-	if patternCount > 0 {
-		patterns, _ := learningMem.AllPatterns()
-		if len(patterns) > 0 {
-			fmt.Println()
-			shown := 0
-			for _, p := range patterns {
-				if shown >= 3 {
-					break
-				}
-				if p.Confidence < 0.2 {
-					continue
-				}
-				shown++
-				fmt.Printf("  • %s\n", p.Description)
-				fmt.Printf("    Confidence: %.0f%% | Seen: %d times\n",
-					p.Confidence*100, p.Occurrences)
-			}
-		}
-	}
-	fmt.Println()
-
-	// ──── Approvals ────
-	if state != nil && (state.PendingApproval > 0 || state.PendingConfirm > 0) {
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		fmt.Println()
-		fmt.Println("⚠ APPROVAL REQUIRED")
-		fmt.Println()
-		if state.PendingApproval > 0 {
-			fmt.Printf("  %d hypotheses need approval\n", state.PendingApproval)
-		}
-		if state.PendingConfirm > 0 {
-			fmt.Printf("  %d findings need confirmation\n", state.PendingConfirm)
-		}
-		fmt.Println("  Run: doge approvals")
-		fmt.Println()
-	}
-
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("  Updated: %s\n", time.Now().Format("15:04:05"))
-	fmt.Println()
-
-	return nil
 }
 
 func getProjectID(state *session.PersistedState, db *sql.DB) uuid.UUID {

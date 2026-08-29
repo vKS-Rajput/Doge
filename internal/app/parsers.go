@@ -19,7 +19,8 @@ func registerAllParsers(registry *parser.Registry) {
 	// Tier 1: Discovery tools.
 	registry.Register(subfinder.New())
 	registry.Register(dnsx.New())
-	registry.Register(nmap.New())
+	registry.Register(nmap.New())          // XML parser (first-match priority)
+	registry.Register(nmap.NewTextParser()) // Text parser (stdout capture fallback)
 
 	// Tier 2: Enumeration.
 	registry.Register(httpx.New())

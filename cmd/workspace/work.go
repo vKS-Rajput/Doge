@@ -300,7 +300,7 @@ func autoIngest(application *app.App, result *runner.RunResult, wsPath string, j
 			fmt.Sprintf("%s_%d_%s.txt", tool, num, time.Now().Format("150405")))
 		os.MkdirAll(filepath.Dir(stdoutFile), 0755)
 		if err := os.WriteFile(stdoutFile, []byte(result.Stdout), 0644); err == nil {
-			importResult, err := application.Import(nil, stdoutFile, application.DefaultProjectID)
+			importResult, err := application.Import(context.Background(), stdoutFile, application.DefaultProjectID)
 			if err == nil && importResult != nil {
 				totalObs += importResult.Observations
 			}

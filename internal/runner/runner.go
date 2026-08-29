@@ -104,8 +104,13 @@ func Run(command string, workDir string, stdout, stderr io.Writer) *RunResult {
 		cmd.Stderr = &stderrBuf
 	}
 
-	// Pipe stdin from user.
-	cmd.Stdin = os.Stdin
+	// IMPORTANT: Do NOT pass os.Stdin to child processes.
+	// The DOGE research shell owns stdin via bufio.Scanner.
+	// If a child process inherits os.Stdin, it can consume/close
+	// the pipe, causing scanner.Scan() to return false (EOF)
+	// and terminating the entire research session.
+	// Child processes get nil stdin (reads return EOF immediately).
+	cmd.Stdin = nil
 
 	// Execute.
 	err := cmd.Run()

@@ -98,6 +98,10 @@ Examples:
 				env = "research"
 			}
 
+			// Write initial session state so doge monitor discovers us.
+			writeWorkSessionState(absPath, target, env, application.DefaultProjectID)
+			defer session.ClearState(absPath) // Clean up on exit.
+
 			// Open journal + learning DB.
 			journalDB, err := openJournalDB(absPath)
 			if err != nil {
@@ -116,7 +120,7 @@ Examples:
 			printWorkBanner(target, env, absPath)
 
 			// Run the research shell.
-			return runWorkShell(application, absPath, target, journalStore, learner, learningMem)
+			return runWorkShell(application, absPath, target, env, journalStore, learner, learningMem)
 		},
 	}
 
@@ -140,13 +144,17 @@ func printWorkBanner(target, env, wsPath string) {
 	fmt.Println()
 }
 
-func runWorkShell(application *app.App, wsPath, target string, journalStore *journal.Store, learner *learning.Learner, learningMem *learning.Memory) error {
+func runWorkShell(application *app.App, wsPath, target, env string, journalStore *journal.Store, learner *learning.Learner, learningMem *learning.Memory) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	commandNum := 0
 
 	for {
 		fmt.Printf("DOGE:%s $ ", target)
 		if !scanner.Scan() {
+			// Check for scanner error vs clean EOF (e.g. Ctrl+D).
+			if err := scanner.Err(); err != nil {
+				fmt.Fprintf(os.Stderr, "\n  ⚠ stdin error: %v\n", err)
+			}
 			break
 		}
 
@@ -186,6 +194,9 @@ func runWorkShell(application *app.App, wsPath, target string, journalStore *jou
 		}
 		fmt.Println()
 		fmt.Println()
+
+		// Refresh session state so monitor sees updates.
+		writeWorkSessionState(wsPath, target, env, application.DefaultProjectID)
 	}
 
 	// Print exit summary.
@@ -312,9 +323,6 @@ func autoIngest(application *app.App, result *runner.RunResult, wsPath string, j
 			learner.LearnFromObservations(obs)
 		}
 	}
-
-	// 5. Update session state for monitor.
-	updateSessionState(wsPath, tool, totalObs)
 
 	return totalObs
 }
@@ -519,12 +527,33 @@ func queryRecentObservations(application *app.App, limit int) []domain.Observati
 	return observations
 }
 
-func updateSessionState(wsPath, lastCommand string, observations int) {
+// writeWorkSessionState persists session state for doge monitor to discover.
+func writeWorkSessionState(wsPath, target, env string, projectID uuid.UUID) {
 	absPath, _ := filepath.Abs(wsPath)
-	state, err := session.LoadState(absPath)
-	if err != nil || state == nil {
-		return
+
+	state := &session.PersistedState{
+		InvestigationID: projectID,
+		Target:          target,
+		Environment:     domain.TargetEnvironment(env),
+		ProjectID:       projectID,
+		Status:          session.StatusActive,
+		Mode:            "research",
+		StartedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+		PID:             os.Getpid(),
+		WorkspacePath:   absPath,
+		DatabasePath:    filepath.Join(absPath, ".doge", "workspace.db"),
 	}
-	// Update is handled by the running session's periodic save.
-	// This is a no-op for now — the monitor reads from the DB directly.
+
+	// If existing state has a StartedAt, preserve it (session resume).
+	existing, err := session.LoadState(absPath)
+	if err == nil && existing != nil && !existing.StartedAt.IsZero() {
+		state.StartedAt = existing.StartedAt
+	}
+
+	dogeDir := filepath.Join(absPath, ".doge")
+	os.MkdirAll(dogeDir, 0755)
+
+	data, _ := json.MarshalIndent(state, "", "  ")
+	os.WriteFile(filepath.Join(dogeDir, session.SessionFile), data, 0644)
 }

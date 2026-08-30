@@ -165,11 +165,867 @@ func (m *Materializer) extractFromObservation(obs domain.Observation) ([]entityE
 		return m.extractHTTPProbe(obs)
 	case domain.ObservationSubdomainDiscovery:
 		return m.extractSubdomainDiscovery(obs)
+	case domain.ObservationPortScan:
+		return m.extractPortScan(obs)
+	case domain.ObservationTechnologyDetect:
+		return m.extractTechnologyDetect(obs)
+	case domain.ObservationEndpointDiscovery:
+		return m.extractEndpointDiscovery(obs)
+	case domain.ObservationCrawlResult:
+		return m.extractCrawlResult(obs)
+	case domain.ObservationDNSLookup:
+		return m.extractDNSLookup(obs)
+	case domain.ObservationVulnerabilityScan:
+		return m.extractVulnerabilityScan(obs)
+	case domain.ObservationCertificateInfo:
+		return m.extractCertificateInfo(obs)
+	case domain.ObservationJavaScriptAnalysis:
+		return m.extractJavaScriptAnalysis(obs)
+	case domain.ObservationAPIDiscovery:
+		return m.extractAPIDiscovery(obs)
+	case domain.ObservationAuthProbe:
+		return m.extractAuthProbe(obs)
 	default:
-		// For unsupported observation types, extract nothing.
-		// As we add more parsers, we'll add more extractors here.
 		return nil, nil
 	}
+}
+
+// extractPortScan creates entities from nmap port_scan observations.
+//
+// Entities: IPAddress/Host, Port, Service, Technology
+// Relationships: host → listens_on → port, port → runs_service → service
+func (m *Materializer) extractPortScan(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	host, _ := obs.Data["host"].(string)
+	if host == "" {
+		return nil, nil
+	}
+	hostname, _ := obs.Data["hostname"].(string)
+
+	// Host entity.
+	hostKey := "host:" + host
+	hostAttrs := map[string]any{}
+	if hostname != "" {
+		hostAttrs["hostname"] = hostname
+	}
+	entities = append(entities, entityExtraction{
+		key:        hostKey,
+		entityType: domain.EntityIPAddress,
+		value:      host,
+		attributes: hostAttrs,
+	})
+
+	// Port entity.
+	portNum := toInt(obs.Data["port"])
+	protocol, _ := obs.Data["protocol"].(string)
+	state, _ := obs.Data["state"].(string)
+	if portNum > 0 {
+		portVal := fmt.Sprintf("%d/%s", portNum, protocol)
+		portKey := "port:" + host + ":" + portVal
+		portAttrs := map[string]any{
+			"port":     portNum,
+			"protocol": protocol,
+			"state":    state,
+		}
+		entities = append(entities, entityExtraction{
+			key:        portKey,
+			entityType: domain.EntityPort,
+			value:      portVal,
+			attributes: portAttrs,
+		})
+
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  hostKey,
+			targetKey:  portKey,
+			relType:    domain.RelListensOn,
+			attributes: map[string]any{},
+		})
+
+		// Service entity.
+		service, _ := obs.Data["service"].(string)
+		if service != "" {
+			serviceKey := "service:" + host + ":" + service
+			serviceAttrs := map[string]any{"port": portNum}
+			entities = append(entities, entityExtraction{
+				key:        serviceKey,
+				entityType: domain.EntityService,
+				value:      service,
+				attributes: serviceAttrs,
+			})
+
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  portKey,
+				targetKey:  serviceKey,
+				relType:    domain.RelRunsService,
+				attributes: map[string]any{},
+			})
+		}
+
+		// Technology entity (product/version).
+		product, _ := obs.Data["product"].(string)
+		version, _ := obs.Data["version"].(string)
+		if product != "" {
+			techVal := product
+			if version != "" {
+				techVal += " " + version
+			}
+			techKey := "tech:" + techVal
+			entities = append(entities, entityExtraction{
+				key:        techKey,
+				entityType: domain.EntityTechnology,
+				value:      techVal,
+				attributes: map[string]any{},
+			})
+
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  hostKey,
+				targetKey:  techKey,
+				relType:    domain.RelUsesTechnology,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	// Hostname as subdomain entity.
+	if hostname != "" && strings.Contains(hostname, ".") {
+		entities = append(entities, entityExtraction{
+			key:        "subdomain:" + hostname,
+			entityType: domain.EntitySubdomain,
+			value:      hostname,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  "subdomain:" + hostname,
+			targetKey:  hostKey,
+			relType:    domain.RelResolvesTo,
+			attributes: map[string]any{},
+		})
+	}
+
+	return entities, rels
+}
+
+// extractTechnologyDetect creates entities from technology_detection observations.
+func (m *Materializer) extractTechnologyDetect(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	tech, _ := obs.Data["technology"].(string)
+	if tech == "" {
+		// Try name field.
+		tech, _ = obs.Data["name"].(string)
+	}
+	if tech == "" {
+		return nil, nil
+	}
+
+	techKey := "tech:" + tech
+	techAttrs := map[string]any{}
+	if cat, ok := obs.Data["category"].(string); ok {
+		techAttrs["category"] = cat
+	}
+	if ver, ok := obs.Data["version"].(string); ok {
+		techAttrs["version"] = ver
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        techKey,
+		entityType: domain.EntityTechnology,
+		value:      tech,
+		attributes: techAttrs,
+	})
+
+	// Link to URL or host if present.
+	rawURL, _ := obs.Data["url"].(string)
+	host, _ := obs.Data["host"].(string)
+
+	if rawURL != "" {
+		urlKey := "url:" + rawURL
+		entities = append(entities, entityExtraction{
+			key:        urlKey,
+			entityType: domain.EntityURL,
+			value:      rawURL,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  urlKey,
+			targetKey:  techKey,
+			relType:    domain.RelUsesTechnology,
+			attributes: map[string]any{},
+		})
+	} else if host != "" {
+		hostKey := "host:" + host
+		hostType := domain.EntitySubdomain
+		if strings.Count(host, ".") <= 1 {
+			hostType = domain.EntityDomain
+		}
+		entities = append(entities, entityExtraction{
+			key:        hostKey,
+			entityType: hostType,
+			value:      host,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  hostKey,
+			targetKey:  techKey,
+			relType:    domain.RelUsesTechnology,
+			attributes: map[string]any{},
+		})
+	}
+
+	return entities, rels
+}
+
+// extractEndpointDiscovery creates entities from ffuf/dirsearch endpoint_discovery observations.
+func (m *Materializer) extractEndpointDiscovery(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	rawURL, _ := obs.Data["url"].(string)
+	if rawURL == "" {
+		return nil, nil
+	}
+
+	// URL entity.
+	urlAttrs := map[string]any{}
+	if sc, ok := obs.Data["status_code"]; ok {
+		urlAttrs["status_code"] = sc
+	}
+	if ct, ok := obs.Data["content_type"].(string); ok && ct != "" {
+		urlAttrs["content_type"] = ct
+	}
+	if cl, ok := obs.Data["content_length"]; ok {
+		urlAttrs["content_length"] = cl
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        "url:" + rawURL,
+		entityType: domain.EntityURL,
+		value:      rawURL,
+		attributes: urlAttrs,
+	})
+
+	// Extract endpoint path.
+	if u, err := url.Parse(rawURL); err == nil {
+		path := u.Path
+		if path != "" && path != "/" {
+			endpointKey := "endpoint:" + u.Host + path
+			entities = append(entities, entityExtraction{
+				key:        endpointKey,
+				entityType: domain.EntityEndpoint,
+				value:      path,
+				attributes: map[string]any{},
+			})
+		}
+
+		// Host entity.
+		host := u.Hostname()
+		if host != "" {
+			hostType := domain.EntitySubdomain
+			if strings.Count(host, ".") <= 1 {
+				hostType = domain.EntityDomain
+			}
+			hostKey := "host:" + host
+			entities = append(entities, entityExtraction{
+				key:        hostKey,
+				entityType: hostType,
+				value:      host,
+				attributes: map[string]any{},
+			})
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  hostKey,
+				targetKey:  "url:" + rawURL,
+				relType:    domain.RelServes,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	return entities, rels
+}
+
+// extractCrawlResult creates entities from katana crawl_result observations.
+func (m *Materializer) extractCrawlResult(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	rawURL, _ := obs.Data["url"].(string)
+	if rawURL == "" {
+		return nil, nil
+	}
+
+	// URL entity.
+	urlAttrs := map[string]any{}
+	if sc, ok := obs.Data["status_code"]; ok {
+		urlAttrs["status_code"] = sc
+	}
+	if method, ok := obs.Data["method"].(string); ok {
+		urlAttrs["method"] = method
+	}
+	entities = append(entities, entityExtraction{
+		key:        "url:" + rawURL,
+		entityType: domain.EntityURL,
+		value:      rawURL,
+		attributes: urlAttrs,
+	})
+
+	// Endpoint from path.
+	if u, err := url.Parse(rawURL); err == nil {
+		if u.Path != "" && u.Path != "/" {
+			endpointKey := "endpoint:" + u.Host + u.Path
+			entities = append(entities, entityExtraction{
+				key:        endpointKey,
+				entityType: domain.EntityEndpoint,
+				value:      u.Path,
+				attributes: map[string]any{},
+			})
+		}
+
+		host := u.Hostname()
+		if host != "" {
+			hostType := domain.EntitySubdomain
+			if strings.Count(host, ".") <= 1 {
+				hostType = domain.EntityDomain
+			}
+			entities = append(entities, entityExtraction{
+				key:        "host:" + host,
+				entityType: hostType,
+				value:      host,
+				attributes: map[string]any{},
+			})
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  "host:" + host,
+				targetKey:  "url:" + rawURL,
+				relType:    domain.RelServes,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	// Technologies from katana.
+	if techList, ok := obs.Data["technologies"]; ok {
+		var techs []string
+		switch v := techList.(type) {
+		case []string:
+			techs = v
+		case []any:
+			for _, item := range v {
+				if s, ok := item.(string); ok {
+					techs = append(techs, s)
+				}
+			}
+		}
+		for _, tech := range techs {
+			if tech == "" {
+				continue
+			}
+			techKey := "tech:" + tech
+			entities = append(entities, entityExtraction{
+				key:        techKey,
+				entityType: domain.EntityTechnology,
+				value:      tech,
+				attributes: map[string]any{},
+			})
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  "url:" + rawURL,
+				targetKey:  techKey,
+				relType:    domain.RelUsesTechnology,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	return entities, rels
+}
+
+// extractDNSLookup creates entities from dnsx dns_lookup observations.
+func (m *Materializer) extractDNSLookup(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	host, _ := obs.Data["host"].(string)
+	if host == "" {
+		return nil, nil
+	}
+
+	// Domain/subdomain entity.
+	hostType := domain.EntitySubdomain
+	if strings.Count(host, ".") <= 1 {
+		hostType = domain.EntityDomain
+	}
+	hostKey := "host:" + host
+	entities = append(entities, entityExtraction{
+		key:        hostKey,
+		entityType: hostType,
+		value:      host,
+		attributes: map[string]any{},
+	})
+
+	// A records → IP entities.
+	addIPs := func(records any, recordType string) {
+		switch v := records.(type) {
+		case []string:
+			for _, ip := range v {
+				ipKey := "ip:" + ip
+				entities = append(entities, entityExtraction{
+					key:        ipKey,
+					entityType: domain.EntityIPAddress,
+					value:      ip,
+					attributes: map[string]any{"record_type": recordType},
+				})
+				rels = append(rels, relationshipExtraction{
+					sourceKey:  hostKey,
+					targetKey:  ipKey,
+					relType:    domain.RelResolvesTo,
+					attributes: map[string]any{"record_type": recordType},
+				})
+			}
+		case []any:
+			for _, item := range v {
+				if ip, ok := item.(string); ok {
+					ipKey := "ip:" + ip
+					entities = append(entities, entityExtraction{
+						key:        ipKey,
+						entityType: domain.EntityIPAddress,
+						value:      ip,
+						attributes: map[string]any{"record_type": recordType},
+					})
+					rels = append(rels, relationshipExtraction{
+						sourceKey:  hostKey,
+						targetKey:  ipKey,
+						relType:    domain.RelResolvesTo,
+						attributes: map[string]any{"record_type": recordType},
+					})
+				}
+			}
+		}
+	}
+
+	if a, ok := obs.Data["a"]; ok {
+		addIPs(a, "A")
+	}
+	if aaaa, ok := obs.Data["aaaa"]; ok {
+		addIPs(aaaa, "AAAA")
+	}
+
+	// CNAME records → DNS record + subdomain entities.
+	addStringRecords := func(records any, recordType string) {
+		switch v := records.(type) {
+		case []string:
+			for _, val := range v {
+				recKey := "dns:" + host + ":" + recordType + ":" + val
+				entities = append(entities, entityExtraction{
+					key:        recKey,
+					entityType: domain.EntityDNSRecord,
+					value:      val,
+					attributes: map[string]any{"record_type": recordType},
+				})
+				rels = append(rels, relationshipExtraction{
+					sourceKey:  hostKey,
+					targetKey:  recKey,
+					relType:    domain.RelHasDNSRecord,
+					attributes: map[string]any{},
+				})
+			}
+		case []any:
+			for _, item := range v {
+				if val, ok := item.(string); ok {
+					recKey := "dns:" + host + ":" + recordType + ":" + val
+					entities = append(entities, entityExtraction{
+						key:        recKey,
+						entityType: domain.EntityDNSRecord,
+						value:      val,
+						attributes: map[string]any{"record_type": recordType},
+					})
+					rels = append(rels, relationshipExtraction{
+						sourceKey:  hostKey,
+						targetKey:  recKey,
+						relType:    domain.RelHasDNSRecord,
+						attributes: map[string]any{},
+					})
+				}
+			}
+		}
+	}
+
+	if cname, ok := obs.Data["cname"]; ok {
+		addStringRecords(cname, "CNAME")
+	}
+	if mx, ok := obs.Data["mx"]; ok {
+		addStringRecords(mx, "MX")
+	}
+	if ns, ok := obs.Data["ns"]; ok {
+		addStringRecords(ns, "NS")
+	}
+	if txt, ok := obs.Data["txt"]; ok {
+		addStringRecords(txt, "TXT")
+	}
+
+	return entities, rels
+}
+
+// extractVulnerabilityScan creates entities from nuclei vulnerability_scan observations.
+// NOTE: Nuclei findings are CANDIDATES, not confirmed vulnerabilities.
+func (m *Materializer) extractVulnerabilityScan(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	templateID, _ := obs.Data["template_id"].(string)
+	host, _ := obs.Data["host"].(string)
+	if templateID == "" || host == "" {
+		return nil, nil
+	}
+
+	// Finding reference entity (CANDIDATE, not confirmed).
+	name, _ := obs.Data["name"].(string)
+	severity, _ := obs.Data["scanner_severity"].(string)
+	findingKey := "finding:" + templateID + ":" + host
+	findingAttrs := map[string]any{
+		"template_id":      templateID,
+		"scanner_severity": severity,
+		"status":           "candidate", // Never auto-confirm.
+	}
+	if name != "" {
+		findingAttrs["name"] = name
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        findingKey,
+		entityType: domain.EntityFindingRef,
+		value:      templateID,
+		attributes: findingAttrs,
+	})
+
+	// Host entity.
+	hostType := domain.EntitySubdomain
+	if strings.Count(host, ".") <= 1 {
+		hostType = domain.EntityDomain
+	}
+	// Check if host looks like an IP.
+	if isIPAddress(host) {
+		hostType = domain.EntityIPAddress
+	}
+	hostKey := "host:" + host
+	entities = append(entities, entityExtraction{
+		key:        hostKey,
+		entityType: hostType,
+		value:      host,
+		attributes: map[string]any{},
+	})
+
+	rels = append(rels, relationshipExtraction{
+		sourceKey:  hostKey,
+		targetKey:  findingKey,
+		relType:    domain.RelRelatedTo,
+		attributes: map[string]any{},
+	})
+
+	// Matched URL as endpoint.
+	matchedAt, _ := obs.Data["matched_at"].(string)
+	if matchedAt != "" {
+		if u, err := url.Parse(matchedAt); err == nil && u.Path != "" && u.Path != "/" {
+			endpointKey := "endpoint:" + u.Host + u.Path
+			entities = append(entities, entityExtraction{
+				key:        endpointKey,
+				entityType: domain.EntityEndpoint,
+				value:      u.Path,
+				attributes: map[string]any{},
+			})
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  endpointKey,
+				targetKey:  findingKey,
+				relType:    domain.RelRelatedTo,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	return entities, rels
+}
+
+// extractCertificateInfo creates entities from certificate_info observations.
+func (m *Materializer) extractCertificateInfo(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	host, _ := obs.Data["host"].(string)
+	if host == "" {
+		return nil, nil
+	}
+
+	hostKey := "host:" + host
+	entities = append(entities, entityExtraction{
+		key:        hostKey,
+		entityType: domain.EntitySubdomain,
+		value:      host,
+		attributes: map[string]any{},
+	})
+
+	// Certificate entity.
+	issuer, _ := obs.Data["issuer"].(string)
+	subject, _ := obs.Data["subject"].(string)
+	certVal := subject
+	if certVal == "" {
+		certVal = host
+	}
+	certKey := "cert:" + host
+	certAttrs := map[string]any{}
+	if issuer != "" {
+		certAttrs["issuer"] = issuer
+	}
+	if subject != "" {
+		certAttrs["subject"] = subject
+	}
+	if notBefore, ok := obs.Data["not_before"].(string); ok {
+		certAttrs["not_before"] = notBefore
+	}
+	if notAfter, ok := obs.Data["not_after"].(string); ok {
+		certAttrs["not_after"] = notAfter
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        certKey,
+		entityType: domain.EntityCertificate,
+		value:      certVal,
+		attributes: certAttrs,
+	})
+
+	rels = append(rels, relationshipExtraction{
+		sourceKey:  hostKey,
+		targetKey:  certKey,
+		relType:    domain.RelHasCertificate,
+		attributes: map[string]any{},
+	})
+
+	// SANs as additional subdomains.
+	if sans, ok := obs.Data["san"]; ok {
+		switch v := sans.(type) {
+		case []string:
+			for _, san := range v {
+				sanKey := "subdomain:" + san
+				entities = append(entities, entityExtraction{
+					key:        sanKey,
+					entityType: domain.EntitySubdomain,
+					value:      san,
+					attributes: map[string]any{"source": "certificate_san"},
+				})
+			}
+		case []any:
+			for _, item := range v {
+				if san, ok := item.(string); ok {
+					sanKey := "subdomain:" + san
+					entities = append(entities, entityExtraction{
+						key:        sanKey,
+						entityType: domain.EntitySubdomain,
+						value:      san,
+						attributes: map[string]any{"source": "certificate_san"},
+					})
+				}
+			}
+		}
+	}
+
+	return entities, rels
+}
+
+// extractJavaScriptAnalysis creates entities from javascript_analysis observations.
+func (m *Materializer) extractJavaScriptAnalysis(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	jsURL, _ := obs.Data["url"].(string)
+	if jsURL == "" {
+		return nil, nil
+	}
+
+	jsKey := "js:" + jsURL
+	entities = append(entities, entityExtraction{
+		key:        jsKey,
+		entityType: domain.EntityJavaScriptFile,
+		value:      jsURL,
+		attributes: map[string]any{},
+	})
+
+	// Page that includes this script.
+	if pageURL, ok := obs.Data["page_url"].(string); ok && pageURL != "" {
+		pageKey := "url:" + pageURL
+		entities = append(entities, entityExtraction{
+			key:        pageKey,
+			entityType: domain.EntityURL,
+			value:      pageURL,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  pageKey,
+			targetKey:  jsKey,
+			relType:    domain.RelIncludesScript,
+			attributes: map[string]any{},
+		})
+	}
+
+	// Discovered endpoints from JS analysis.
+	if endpoints, ok := obs.Data["endpoints"]; ok {
+		switch v := endpoints.(type) {
+		case []string:
+			for _, ep := range v {
+				epKey := "endpoint:js:" + ep
+				entities = append(entities, entityExtraction{
+					key:        epKey,
+					entityType: domain.EntityEndpoint,
+					value:      ep,
+					attributes: map[string]any{"source": "javascript_analysis"},
+				})
+			}
+		case []any:
+			for _, item := range v {
+				if ep, ok := item.(string); ok {
+					epKey := "endpoint:js:" + ep
+					entities = append(entities, entityExtraction{
+						key:        epKey,
+						entityType: domain.EntityEndpoint,
+						value:      ep,
+						attributes: map[string]any{"source": "javascript_analysis"},
+					})
+				}
+			}
+		}
+	}
+
+	return entities, rels
+}
+
+// extractAPIDiscovery creates entities from api_discovery observations.
+func (m *Materializer) extractAPIDiscovery(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	endpoint, _ := obs.Data["endpoint"].(string)
+	if endpoint == "" {
+		endpoint, _ = obs.Data["url"].(string)
+	}
+	if endpoint == "" {
+		return nil, nil
+	}
+
+	epKey := "endpoint:" + endpoint
+	epAttrs := map[string]any{}
+	if method, ok := obs.Data["method"].(string); ok {
+		epAttrs["method"] = method
+	}
+	if ct, ok := obs.Data["content_type"].(string); ok {
+		epAttrs["content_type"] = ct
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        epKey,
+		entityType: domain.EntityEndpoint,
+		value:      endpoint,
+		attributes: epAttrs,
+	})
+
+	// Host.
+	host, _ := obs.Data["host"].(string)
+	if host == "" {
+		if u, err := url.Parse(endpoint); err == nil {
+			host = u.Hostname()
+		}
+	}
+	if host != "" {
+		hostType := domain.EntitySubdomain
+		if strings.Count(host, ".") <= 1 {
+			hostType = domain.EntityDomain
+		}
+		hostKey := "host:" + host
+		entities = append(entities, entityExtraction{
+			key:        hostKey,
+			entityType: hostType,
+			value:      host,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  hostKey,
+			targetKey:  epKey,
+			relType:    domain.RelHasEndpoint,
+			attributes: map[string]any{},
+		})
+	}
+
+	return entities, rels
+}
+
+// extractAuthProbe creates entities from authentication_probe observations.
+func (m *Materializer) extractAuthProbe(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
+	var entities []entityExtraction
+	var rels []relationshipExtraction
+
+	mechanism, _ := obs.Data["mechanism"].(string)
+	if mechanism == "" {
+		mechanism, _ = obs.Data["type"].(string)
+	}
+	if mechanism == "" {
+		return nil, nil
+	}
+
+	authKey := "auth:" + mechanism
+	authAttrs := map[string]any{}
+	if details, ok := obs.Data["details"].(string); ok {
+		authAttrs["details"] = details
+	}
+
+	entities = append(entities, entityExtraction{
+		key:        authKey,
+		entityType: domain.EntityAuthMechanism,
+		value:      mechanism,
+		attributes: authAttrs,
+	})
+
+	// Link to endpoint/URL.
+	rawURL, _ := obs.Data["url"].(string)
+	if rawURL != "" {
+		urlKey := "url:" + rawURL
+		entities = append(entities, entityExtraction{
+			key:        urlKey,
+			entityType: domain.EntityURL,
+			value:      rawURL,
+			attributes: map[string]any{},
+		})
+		rels = append(rels, relationshipExtraction{
+			sourceKey:  urlKey,
+			targetKey:  authKey,
+			relType:    domain.RelUsesAuth,
+			attributes: map[string]any{},
+		})
+	}
+
+	return entities, rels
+}
+
+// --- Helpers ---
+
+// toInt extracts an integer from interface{} (handles float64 from JSON).
+func toInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case float64:
+		return int(n)
+	case int64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
+// isIPAddress returns true if s looks like an IP address.
+func isIPAddress(s string) bool {
+	for _, c := range s {
+		if c != '.' && (c < '0' || c > '9') && c != ':' {
+			return false
+		}
+	}
+	return strings.Contains(s, ".")
 }
 
 // extractHTTPProbe extracts entities from an HTTP probe observation.

@@ -74,6 +74,10 @@ requiring AI. AI reasoning is available but optional.`,
 		newNoteCmd(),
 		newCoverageCmd(),
 		newGapsCmd(),
+		// v1.4: Autonomous Research Architecture.
+		newResearchCmd(),
+		newWhyCmd(),
+		newScopeCmd(),
 	)
 
 	return root

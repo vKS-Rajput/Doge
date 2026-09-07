@@ -293,8 +293,8 @@ func autoIngest(application *app.App, result *runner.RunResult, wsPath string, j
 		}
 	}
 
-	// 2. If stdout has content and no files were created, store stdout as artifact.
-	if len(result.NewFiles) == 0 && len(result.Stdout) > 100 {
+	// 2. If stdout has content, store stdout as artifact for ingestion.
+	if len(strings.TrimSpace(result.Stdout)) > 0 {
 		// Save stdout to a temp file for ingestion.
 		stdoutFile := filepath.Join(wsPath, ".doge", "captured",
 			fmt.Sprintf("%s_%d_%s.txt", tool, num, time.Now().Format("150405")))

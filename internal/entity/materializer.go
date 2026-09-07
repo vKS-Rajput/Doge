@@ -378,17 +378,19 @@ func (m *Materializer) extractTechnologyDetect(obs domain.Observation) ([]entity
 	return entities, rels
 }
 
-// extractEndpointDiscovery creates entities from ffuf/dirsearch endpoint_discovery observations.
+// extractEndpointDiscovery creates entities from ffuf/dirsearch/gobuster/feroxbuster endpoint_discovery observations.
 func (m *Materializer) extractEndpointDiscovery(obs domain.Observation) ([]entityExtraction, []relationshipExtraction) {
 	var entities []entityExtraction
 	var rels []relationshipExtraction
 
 	rawURL, _ := obs.Data["url"].(string)
-	if rawURL == "" {
+	path, _ := obs.Data["path"].(string)
+	host, _ := obs.Data["host"].(string)
+
+	if rawURL == "" && path == "" {
 		return nil, nil
 	}
 
-	// URL entity.
 	urlAttrs := map[string]any{}
 	if sc, ok := obs.Data["status_code"]; ok {
 		urlAttrs["status_code"] = sc
@@ -400,44 +402,113 @@ func (m *Materializer) extractEndpointDiscovery(obs domain.Observation) ([]entit
 		urlAttrs["content_length"] = cl
 	}
 
-	entities = append(entities, entityExtraction{
-		key:        "url:" + rawURL,
-		entityType: domain.EntityURL,
-		value:      rawURL,
-		attributes: urlAttrs,
-	})
+	if rawURL != "" {
+		entities = append(entities, entityExtraction{
+			key:        "url:" + rawURL,
+			entityType: domain.EntityURL,
+			value:      rawURL,
+			attributes: urlAttrs,
+		})
+	}
 
-	// Extract endpoint path.
-	if u, err := url.Parse(rawURL); err == nil {
-		path := u.Path
-		if path != "" && path != "/" {
-			endpointKey := "endpoint:" + u.Host + path
-			entities = append(entities, entityExtraction{
-				key:        endpointKey,
-				entityType: domain.EntityEndpoint,
-				value:      path,
+	// Extract endpoint path
+	extractedPath := path
+	if rawURL != "" {
+		if u, err := url.Parse(rawURL); err == nil {
+			if extractedPath == "" {
+				extractedPath = u.Path
+			}
+			if host == "" {
+				host = u.Hostname()
+			}
+		}
+	}
+
+	if extractedPath != "" {
+		endpointKey := "endpoint:" + host + ":" + extractedPath
+		entities = append(entities, entityExtraction{
+			key:        endpointKey,
+			entityType: domain.EntityEndpoint,
+			value:      extractedPath,
+			attributes: urlAttrs,
+		})
+
+		if rawURL != "" {
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  "url:" + rawURL,
+				targetKey:  endpointKey,
+				relType:    domain.RelHasEndpoint,
 				attributes: map[string]any{},
 			})
 		}
+	}
 
-		// Host entity.
-		host := u.Hostname()
-		if host != "" {
-			hostType := domain.EntitySubdomain
-			if strings.Count(host, ".") <= 1 {
-				hostType = domain.EntityDomain
-			}
-			hostKey := "host:" + host
-			entities = append(entities, entityExtraction{
-				key:        hostKey,
-				entityType: hostType,
-				value:      host,
-				attributes: map[string]any{},
-			})
+	// Host entity
+	if host != "" {
+		hostType := domain.EntitySubdomain
+		if strings.Count(host, ".") <= 1 {
+			hostType = domain.EntityDomain
+		}
+		hostKey := "host:" + host
+		entities = append(entities, entityExtraction{
+			key:        hostKey,
+			entityType: hostType,
+			value:      host,
+			attributes: map[string]any{},
+		})
+
+		if rawURL != "" {
 			rels = append(rels, relationshipExtraction{
 				sourceKey:  hostKey,
 				targetKey:  "url:" + rawURL,
 				relType:    domain.RelServes,
+				attributes: map[string]any{},
+			})
+		} else if extractedPath != "" {
+			endpointKey := "endpoint:" + host + ":" + extractedPath
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  hostKey,
+				targetKey:  endpointKey,
+				relType:    domain.RelHasEndpoint,
+				attributes: map[string]any{},
+			})
+		}
+	}
+
+	// Extract query parameter entities if present
+	if params, ok := obs.Data["parameters"].([]string); ok {
+		for _, p := range params {
+			paramKey := "param:" + host + ":" + p
+			entities = append(entities, entityExtraction{
+				key:        paramKey,
+				entityType: domain.EntityParameter,
+				value:      p,
+				attributes: map[string]any{"name": p},
+			})
+			if extractedPath != "" {
+				endpointKey := "endpoint:" + host + ":" + extractedPath
+				rels = append(rels, relationshipExtraction{
+					sourceKey:  endpointKey,
+					targetKey:  paramKey,
+					relType:    domain.RelHasParameter,
+					attributes: map[string]any{},
+				})
+			}
+		}
+	} else if param, ok := obs.Data["parameter"].(string); ok && param != "" {
+		paramKey := "param:" + host + ":" + param
+		entities = append(entities, entityExtraction{
+			key:        paramKey,
+			entityType: domain.EntityParameter,
+			value:      param,
+			attributes: map[string]any{"name": param},
+		})
+		if extractedPath != "" {
+			endpointKey := "endpoint:" + host + ":" + extractedPath
+			rels = append(rels, relationshipExtraction{
+				sourceKey:  endpointKey,
+				targetKey:  paramKey,
+				relType:    domain.RelHasParameter,
 				attributes: map[string]any{},
 			})
 		}

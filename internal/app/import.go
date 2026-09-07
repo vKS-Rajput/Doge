@@ -122,7 +122,7 @@ func (a *App) buildParserRegistry() *parser.Registry {
 
 	// Register all available parsers.
 	// More specific parsers go first (first-match wins).
-	registerAllParsers(registry)
+	RegisterParsers(registry)
 
 	return registry
 }

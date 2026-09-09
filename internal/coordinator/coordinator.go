@@ -28,6 +28,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vKS-Rajput/doge/internal/attackgraph"
+	"github.com/vKS-Rajput/doge/internal/director"
+	"github.com/vKS-Rajput/doge/internal/invariant"
 	"github.com/vKS-Rajput/doge/internal/property"
 	"github.com/vKS-Rajput/doge/internal/researcher"
 	"github.com/vKS-Rajput/doge/pkg/domain"
@@ -119,6 +121,8 @@ type ResearchCoordinator struct {
 	propertyEvaluator *property.Evaluator
 	attackGraph       *attackgraph.Graph
 	catalog           *property.Catalog
+	director          *director.Director
+	miner             *invariant.Miner
 }
 
 // NewResearchCoordinator creates a new coordinator for a target engagement.
@@ -139,6 +143,8 @@ func NewResearchCoordinator(targetURL string, credentials map[string]string) *Re
 		propertyEvaluator: property.NewEvaluator(),
 		attackGraph:       attackgraph.NewGraph(),
 		catalog:           property.NewCatalog(),
+		director:          director.NewDirector(0.65),
+		miner:             invariant.NewMiner(),
 	}
 }
 
@@ -165,6 +171,16 @@ func (c *ResearchCoordinator) PropertyEvaluator() *property.Evaluator {
 // AttackGraph returns the coordinator's attack graph.
 func (c *ResearchCoordinator) AttackGraph() *attackgraph.Graph {
 	return c.attackGraph
+}
+
+// Director returns the coordinator's research director.
+func (c *ResearchCoordinator) Director() *director.Director {
+	return c.director
+}
+
+// Miner returns the coordinator's invariant miner.
+func (c *ResearchCoordinator) Miner() *invariant.Miner {
+	return c.miner
 }
 
 // Run executes the complete research loop dynamically until:
@@ -273,6 +289,9 @@ func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
 			if strings.Contains(strings.ToLower(candidate.Type), "workflow") {
 				confCriteria = "Independent reproduction of workflow transition bypass with differential control"
 				refutCriteria = "Cannot reproduce workflow transition bypass"
+			} else if strings.Contains(strings.ToLower(candidate.Type), "batch") || strings.Contains(strings.ToLower(candidate.Type), "bleed") {
+				confCriteria = "Independent reproduction of batch context bleed with differential metamorphic control"
+				refutCriteria = "Cannot reproduce batch context bleed"
 			} else {
 				confCriteria = "Independent reproduction of cross-tenant access with evidence"
 				refutCriteria = "Cannot reproduce cross-tenant access"
@@ -303,7 +322,41 @@ func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
 		}
 	}
 
-	// 4. Hypothesis-driven research dispatch
+	// 4. Anomaly researcher dispatch for unmodeled / batch pipelined behavior
+	anomalyRan := false
+	for _, m := range c.state.Missions {
+		if m.ResearcherType == domain.ResearcherAnomaly {
+			anomalyRan = true
+			break
+		}
+	}
+	hasBatchEndpoint := false
+	for _, ep := range c.state.Endpoints {
+		low := strings.ToLower(ep)
+		if strings.Contains(low, "batch") || strings.Contains(low, "bulk") || strings.Contains(low, "pipe") {
+			hasBatchEndpoint = true
+			break
+		}
+	}
+	if !anomalyRan && hasBatchEndpoint && c.hasResearcher(domain.ResearcherAnomaly) {
+		return &domain.MissionBrief{
+			ID:              uuid.New(),
+			ResearcherType:  domain.ResearcherAnomaly,
+			Title:           "Unknown-Space Metamorphic Anomaly Probing",
+			Description:     "Induce behavioral invariants and execute metamorphic differential probes across execution boundaries.",
+			TargetBaseURL:   c.targetURL,
+			Credentials:     c.credentials,
+			KnownEndpoints:  c.state.Endpoints,
+			KnownUsers:      c.state.Users,
+			KnownObjects:    c.state.Objects,
+			Unknowns:        c.state.Untested,
+			MaxRequests:     100,
+			MaxDuration:     120 * time.Second,
+			SuccessCriteria: "Dynamic invariants mined and metamorphic relations evaluated",
+		}
+	}
+
+	// 5. Hypothesis-driven research dispatch
 	// Check for Workflow State Bypass hypothesis or workflow endpoints
 	workflowRan := false
 	for _, m := range c.state.Missions {
@@ -495,6 +548,17 @@ func (c *ResearchCoordinator) debrief(result *domain.MissionResult) {
 			c.propertyEvaluator.Register(p)
 		}
 	}
+	if result.ResearcherType == domain.ResearcherAnomaly {
+		c.state.Untested = removeMatching(c.state.Untested, "Multi-tenant isolation unknown")
+		for _, inv := range c.miner.MineInvariants() {
+			c.propertyEvaluator.Register(inv.ToSecurityProperty())
+			c.attackGraph.AddNode(attackgraph.NodeCapability, "Induced Invariant: "+inv.Statement, string(inv.Type), 0.9)
+		}
+		c.director.RecordOutcome(director.PolicyDiscover, true, len(result.CandidateFindings) > 0)
+	}
+	if result.ResearcherType == domain.ResearcherValidation {
+		c.director.RecordOutcome(director.PolicyExploit, false, len(c.state.Validated) > 0)
+	}
 
 	// Record weaknesses & impact in attack graph
 	for _, cand := range result.CandidateFindings {
@@ -518,7 +582,7 @@ func (c *ResearchCoordinator) finalizeFindings() {
 
 		for _, m := range c.state.Missions {
 			switch m.ResearcherType {
-			case domain.ResearcherAuthorization, domain.ResearcherWorkflow:
+			case domain.ResearcherAuthorization, domain.ResearcherWorkflow, domain.ResearcherAnomaly:
 				for _, ev := range m.Evidence {
 					if ev.IsAnomalous {
 						discoveryEvidence = append(discoveryEvidence, ev)

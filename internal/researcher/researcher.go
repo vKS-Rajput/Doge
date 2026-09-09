@@ -32,3 +32,11 @@ type HTTPClient interface {
 	// Do executes an HTTP request and captures the full evidence.
 	Do(ctx context.Context, method, url string, headers map[string]string, body string) (*domain.ExperimentEvidence, error)
 }
+
+// researchPrincipal represents an identified identity during research.
+type researchPrincipal struct {
+	credName string
+	token    string
+	userID   string
+	tenantID string
+}

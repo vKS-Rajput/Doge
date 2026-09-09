@@ -28,6 +28,8 @@ const (
 	ResearcherImpact        ResearcherType = "impact"
 	ResearcherExploit       ResearcherType = "exploit"
 	ResearcherChain         ResearcherType = "chain"
+	ResearcherWorkflow      ResearcherType = "workflow"
+	ResearcherAnomaly       ResearcherType = "anomaly"
 )
 
 // MissionBrief is the scoped context provided to a specialized researcher for a focused mission.

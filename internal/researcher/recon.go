@@ -127,6 +127,48 @@ func (r *ReconResearcher) Execute(ctx context.Context, brief *domain.MissionBrie
 							})
 						}
 					}
+					if epList, ok := docsResp["endpoints"].([]any); ok {
+						for _, item := range epList {
+							if epMap, ok := item.(map[string]any); ok {
+								if p, ok := epMap["path"].(string); ok {
+									result.Endpoints = append(result.Endpoints, p)
+									result.Observations = append(result.Observations, domain.MissionObservation{
+										Type:        "api_endpoint_documented",
+										Description: fmt.Sprintf("Documented API endpoint: %s", p),
+										Endpoint:    p,
+										ObservedAt:  time.Now().UTC(),
+									})
+								}
+							} else if p, ok := item.(string); ok {
+								result.Endpoints = append(result.Endpoints, p)
+							}
+						}
+					}
+					if wf, ok := docsResp["workflow"].(map[string]any); ok {
+						desc, _ := wf["description"].(string)
+						var states []string
+						if stateList, ok := wf["states"].([]any); ok {
+							for _, s := range stateList {
+								if sStr, ok := s.(string); ok {
+									states = append(states, sStr)
+								}
+							}
+						}
+						result.Observations = append(result.Observations, domain.MissionObservation{
+							Type:        "workflow_specification_discovered",
+							Description: fmt.Sprintf("Discovered workflow specification: %s (states: %v)", desc, states),
+							ObservedAt:  time.Now().UTC(),
+						})
+						result.NewUnknowns = append(result.NewUnknowns, "Workflow state transition enforcement is untested")
+						result.NewHypotheses = append(result.NewHypotheses, domain.MissionHypothesis{
+							ID:                   uuid.New(),
+							Title:                "Workflow State Bypass: Payment Step Can Be Skipped",
+							Statement:            "Workflow transitions may not be strictly enforced. Order confirmation may succeed without payment.",
+							Confidence:           0.65,
+							ConfirmationCriteria: "Order reaches confirmed state without payment processing",
+							RefutationCriteria:   "Order confirmation strictly requires paid state (HTTP 400/409)",
+						})
+					}
 				}
 			}
 		}

@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vKS-Rajput/doge/internal/attackgraph"
+	"github.com/vKS-Rajput/doge/internal/property"
 	"github.com/vKS-Rajput/doge/internal/researcher"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
@@ -107,13 +109,16 @@ type ChangeRecord struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
-// ResearchCoordinator orchestrates the complete DOGE V2 research loop.
+// ResearchCoordinator orchestrates the complete DOGE research loop.
 type ResearchCoordinator struct {
-	state       *ResearchState
-	researchers map[domain.ResearcherType]researcher.Researcher
-	targetURL   string
-	credentials map[string]string
-	maxMissions int
+	state             *ResearchState
+	researchers       map[domain.ResearcherType]researcher.Researcher
+	targetURL         string
+	credentials       map[string]string
+	maxMissions       int
+	propertyEvaluator *property.Evaluator
+	attackGraph       *attackgraph.Graph
+	catalog           *property.Catalog
 }
 
 // NewResearchCoordinator creates a new coordinator for a target engagement.
@@ -127,10 +132,13 @@ func NewResearchCoordinator(targetURL string, credentials map[string]string) *Re
 				"Multi-tenant isolation unknown",
 			},
 		},
-		researchers: make(map[domain.ResearcherType]researcher.Researcher),
-		targetURL:   targetURL,
-		credentials: credentials,
-		maxMissions: 10,
+		researchers:       make(map[domain.ResearcherType]researcher.Researcher),
+		targetURL:         targetURL,
+		credentials:       credentials,
+		maxMissions:       10,
+		propertyEvaluator: property.NewEvaluator(),
+		attackGraph:       attackgraph.NewGraph(),
+		catalog:           property.NewCatalog(),
 	}
 }
 
@@ -149,189 +157,217 @@ func (c *ResearchCoordinator) GetState() *ResearchState {
 	return c.state
 }
 
-// Run executes the complete research loop until:
+// PropertyEvaluator returns the coordinator's property evaluator.
+func (c *ResearchCoordinator) PropertyEvaluator() *property.Evaluator {
+	return c.propertyEvaluator
+}
+
+// AttackGraph returns the coordinator's attack graph.
+func (c *ResearchCoordinator) AttackGraph() *attackgraph.Graph {
+	return c.attackGraph
+}
+
+// Run executes the complete research loop dynamically until:
 // 1. A proven finding is produced, OR
 // 2. All research avenues are exhausted, OR
 // 3. The mission budget is exceeded
 func (c *ResearchCoordinator) Run(ctx context.Context) error {
 	missionCount := 0
 
-	// ──────────────────────────────────────
-	// Phase 1: LEARN & MAP
-	// ──────────────────────────────────────
-	reconBrief := &domain.MissionBrief{
-		ID:             uuid.New(),
-		ResearcherType: domain.ResearcherRecon,
-		Title:          "Initial Reconnaissance",
-		Description:    "Map the target's attack surface, discover endpoints, authentication, tenants, and object patterns.",
-		TargetBaseURL:  c.targetURL,
-		Credentials:    c.credentials,
-		MaxRequests:    50,
-		MaxDuration:    60 * time.Second,
-		SuccessCriteria: "At least one endpoint discovered, at least one user identified",
+	for missionCount < c.maxMissions {
+		brief := c.planNextMission()
+		if brief == nil {
+			break
+		}
+
+		result, err := c.dispatchMission(ctx, brief)
+		if err != nil {
+			return fmt.Errorf("mission %s (%s) failed: %w", brief.Title, brief.ResearcherType, err)
+		}
+		c.debrief(result)
+		missionCount++
+
+		// Check if we have achieved a complete proven finding
+		if len(c.state.Validated) > 0 && c.hasImpactEvidence() {
+			c.finalizeFindings()
+			if len(c.state.ProvenFindings) > 0 {
+				break
+			}
+		}
 	}
 
-	reconResult, err := c.dispatchMission(ctx, reconBrief)
-	if err != nil {
-		return fmt.Errorf("recon mission failed: %w", err)
-	}
-	c.debrief(reconResult)
-	missionCount++
+	c.finalizeFindings()
+	return nil
+}
 
-	// ──────────────────────────────────────
-	// Phase 2: HYPOTHESIZE → MISSION → EXPERIMENT
-	// ──────────────────────────────────────
-	// Generate authorization testing mission if hypotheses warrant it
-	if len(c.state.Hypotheses) > 0 && missionCount < c.maxMissions {
-		authBrief := &domain.MissionBrief{
-			ID:             uuid.New(),
-			ResearcherType: domain.ResearcherAuthorization,
-			Title:          "Authorization Boundary Testing",
-			Description:    "Test object-level authorization through differential cross-principal experiments.",
-			TargetBaseURL:  c.targetURL,
-			Credentials:    c.credentials,
-			Hypotheses:     c.state.Hypotheses,
-			KnownEndpoints: c.state.Endpoints,
-			KnownUsers:     c.state.Users,
-			KnownObjects:   c.state.Objects,
-			MaxRequests:    100,
-			MaxDuration:    120 * time.Second,
+func (c *ResearchCoordinator) hasResearcher(rType domain.ResearcherType) bool {
+	_, ok := c.researchers[rType]
+	return ok
+}
+
+func (c *ResearchCoordinator) hasImpactEvidence() bool {
+	for _, m := range c.state.Missions {
+		if m.ResearcherType == domain.ResearcherImpact && len(m.Evidence) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// planNextMission determines the next research step based on world model gaps and hypotheses.
+func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
+	// 1. If no missions yet, always begin with Reconnaissance
+	if len(c.state.Missions) == 0 {
+		return &domain.MissionBrief{
+			ID:              uuid.New(),
+			ResearcherType:  domain.ResearcherRecon,
+			Title:           "Initial Reconnaissance",
+			Description:     "Map the target's attack surface, discover endpoints, authentication, tenants, and object patterns.",
+			TargetBaseURL:   c.targetURL,
+			Credentials:     c.credentials,
+			MaxRequests:     50,
+			MaxDuration:     60 * time.Second,
+			SuccessCriteria: "At least one endpoint discovered, at least one user identified",
+		}
+	}
+
+	// 2. If we have validated candidate(s) that need impact demonstration
+	if len(c.state.Validated) > 0 && c.hasResearcher(domain.ResearcherImpact) {
+		impactRan := false
+		for _, m := range c.state.Missions {
+			if m.ResearcherType == domain.ResearcherImpact {
+				impactRan = true
+				break
+			}
+		}
+		if !impactRan {
+			validated := c.state.Validated[0]
+			return &domain.MissionBrief{
+				ID:              uuid.New(),
+				ResearcherType:  domain.ResearcherImpact,
+				Title:           fmt.Sprintf("Impact Demonstration: %s", validated.Title),
+				Description:     "Demonstrate the real-world impact of the validated vulnerability within authorization constraints.",
+				TargetBaseURL:   c.targetURL,
+				Credentials:     c.credentials,
+				KnownEndpoints:  c.state.Endpoints,
+				KnownObjects:    c.state.Objects,
+				MaxRequests:     50,
+				MaxDuration:     60 * time.Second,
+				SuccessCriteria: "Impact demonstrated with evidence",
+			}
+		}
+	}
+
+	// 3. If we have unvalidated candidate(s), dispatch Independent Validation
+	if len(c.state.Candidates) > 0 && len(c.state.Validated) == 0 && c.hasResearcher(domain.ResearcherValidation) {
+		validationRan := false
+		for _, m := range c.state.Missions {
+			if m.ResearcherType == domain.ResearcherValidation {
+				validationRan = true
+				break
+			}
+		}
+		if !validationRan {
+			candidate := c.state.Candidates[0]
+			var confCriteria, refutCriteria string
+			if strings.Contains(strings.ToLower(candidate.Type), "workflow") {
+				confCriteria = "Independent reproduction of workflow transition bypass with differential control"
+				refutCriteria = "Cannot reproduce workflow transition bypass"
+			} else {
+				confCriteria = "Independent reproduction of cross-tenant access with evidence"
+				refutCriteria = "Cannot reproduce cross-tenant access"
+			}
+			return &domain.MissionBrief{
+				ID:             uuid.New(),
+				ResearcherType: domain.ResearcherValidation,
+				Title:          fmt.Sprintf("Independent Validation: %s", candidate.Title),
+				Description:    "Independently reproduce and validate the candidate vulnerability using fresh context.",
+				TargetBaseURL:  c.targetURL,
+				Credentials:    c.credentials,
+				Hypotheses: []domain.MissionHypothesis{
+					{
+						ID:                   candidate.ID,
+						Title:                candidate.Title,
+						Statement:            candidate.Description,
+						Confidence:           0.80,
+						ConfirmationCriteria: confCriteria,
+						RefutationCriteria:   refutCriteria,
+					},
+				},
+				KnownEndpoints: c.state.Endpoints,
+				KnownObjects:   c.state.Objects,
+				MaxRequests:    80,
+				MaxDuration:    90 * time.Second,
+				SuccessCriteria: "Independent reproduction with evidence",
+			}
+		}
+	}
+
+	// 4. Hypothesis-driven research dispatch
+	// Check for Workflow State Bypass hypothesis or workflow endpoints
+	workflowRan := false
+	for _, m := range c.state.Missions {
+		if m.ResearcherType == domain.ResearcherWorkflow {
+			workflowRan = true
+			break
+		}
+	}
+	hasWorkflowSignal := false
+	for _, h := range c.state.Hypotheses {
+		low := strings.ToLower(h.Title)
+		if strings.Contains(low, "workflow") || strings.Contains(low, "state") {
+			hasWorkflowSignal = true
+			break
+		}
+	}
+	for _, ep := range c.state.Endpoints {
+		low := strings.ToLower(ep)
+		if strings.Contains(low, "order") || strings.Contains(low, "cart") || strings.Contains(low, "checkout") {
+			hasWorkflowSignal = true
+			break
+		}
+	}
+	if !workflowRan && hasWorkflowSignal && c.hasResearcher(domain.ResearcherWorkflow) {
+		return &domain.MissionBrief{
+			ID:              uuid.New(),
+			ResearcherType:  domain.ResearcherWorkflow,
+			Title:           "Workflow State Integrity Testing",
+			Description:     "Discover state machines and test whether workflow transitions can be bypassed or skipped.",
+			TargetBaseURL:   c.targetURL,
+			Credentials:     c.credentials,
+			Hypotheses:      c.state.Hypotheses,
+			KnownEndpoints:  c.state.Endpoints,
+			Unknowns:        c.state.Untested,
+			MaxRequests:     100,
+			MaxDuration:     120 * time.Second,
+			SuccessCriteria: "State machine mapped and transition integrity tested",
+		}
+	}
+
+	// Check for Authorization Testing hypothesis
+	authRan := false
+	for _, m := range c.state.Missions {
+		if m.ResearcherType == domain.ResearcherAuthorization {
+			authRan = true
+			break
+		}
+	}
+	if !authRan && len(c.state.Hypotheses) > 0 && c.hasResearcher(domain.ResearcherAuthorization) {
+		return &domain.MissionBrief{
+			ID:              uuid.New(),
+			ResearcherType:  domain.ResearcherAuthorization,
+			Title:           "Authorization Boundary Testing",
+			Description:     "Test object-level authorization through differential cross-principal experiments.",
+			TargetBaseURL:   c.targetURL,
+			Credentials:     c.credentials,
+			Hypotheses:      c.state.Hypotheses,
+			KnownEndpoints:  c.state.Endpoints,
+			KnownUsers:      c.state.Users,
+			KnownObjects:    c.state.Objects,
+			MaxRequests:     100,
+			MaxDuration:     120 * time.Second,
 			SuccessCriteria: "Hypothesis confirmed or refuted with evidence",
 		}
-
-		authResult, err := c.dispatchMission(ctx, authBrief)
-		if err != nil {
-			return fmt.Errorf("authorization mission failed: %w", err)
-		}
-		c.debrief(authResult)
-		missionCount++
-	}
-
-	// ──────────────────────────────────────
-	// Phase 3: INDEPENDENT VALIDATION
-	// ──────────────────────────────────────
-	if len(c.state.Candidates) > 0 && missionCount < c.maxMissions {
-		// Pick the strongest candidate
-		candidate := c.state.Candidates[0]
-
-		validationBrief := &domain.MissionBrief{
-			ID:             uuid.New(),
-			ResearcherType: domain.ResearcherValidation,
-			Title:          fmt.Sprintf("Independent Validation: %s", candidate.Title),
-			Description:    "Independently reproduce and validate the candidate vulnerability using fresh context.",
-			TargetBaseURL:  c.targetURL,
-			Credentials:    c.credentials,
-			Hypotheses: []domain.MissionHypothesis{
-				{
-					ID:                   candidate.ID,
-					Title:                candidate.Title,
-					Statement:            candidate.Description,
-					Confidence:           0.80,
-					ConfirmationCriteria: "Independent reproduction of cross-tenant access with evidence",
-					RefutationCriteria:   "Cannot reproduce cross-tenant access",
-				},
-			},
-			KnownEndpoints: c.state.Endpoints,
-			KnownObjects:   c.state.Objects,
-			MaxRequests:    80,
-			MaxDuration:    90 * time.Second,
-			SuccessCriteria: "Independent reproduction with evidence",
-		}
-
-		validationResult, err := c.dispatchMission(ctx, validationBrief)
-		if err != nil {
-			return fmt.Errorf("validation mission failed: %w", err)
-		}
-		c.debrief(validationResult)
-		missionCount++
-	}
-
-	// ──────────────────────────────────────
-	// Phase 4: IMPACT RESEARCH
-	// ──────────────────────────────────────
-	if len(c.state.Validated) > 0 && missionCount < c.maxMissions {
-		validated := c.state.Validated[0]
-
-		impactBrief := &domain.MissionBrief{
-			ID:             uuid.New(),
-			ResearcherType: domain.ResearcherImpact,
-			Title:          fmt.Sprintf("Impact Demonstration: %s", validated.Title),
-			Description:    "Demonstrate the real-world impact of the validated vulnerability within authorization constraints.",
-			TargetBaseURL:  c.targetURL,
-			Credentials:    c.credentials,
-			KnownEndpoints: c.state.Endpoints,
-			KnownObjects:   c.state.Objects,
-			MaxRequests:    50,
-			MaxDuration:    60 * time.Second,
-			SuccessCriteria: "Impact demonstrated with evidence",
-		}
-
-		impactResult, err := c.dispatchMission(ctx, impactBrief)
-		if err != nil {
-			return fmt.Errorf("impact mission failed: %w", err)
-		}
-		c.debrief(impactResult)
-		missionCount++
-	}
-
-	// ──────────────────────────────────────
-	// Phase 5: PROVEN FINDING
-	// ──────────────────────────────────────
-	if len(c.state.Validated) > 0 {
-		validated := c.state.Validated[0]
-
-		// Collect all evidence across the research chain
-		var discoveryEvidence, validationEvidence, impactEvidence []domain.ExperimentEvidence
-		for _, m := range c.state.Missions {
-			switch m.ResearcherType {
-			case domain.ResearcherAuthorization:
-				for _, ev := range m.Evidence {
-					if ev.IsAnomalous {
-						discoveryEvidence = append(discoveryEvidence, ev)
-					}
-				}
-			case domain.ResearcherValidation:
-				for _, ev := range m.Evidence {
-					if ev.IsAnomalous {
-						validationEvidence = append(validationEvidence, ev)
-					}
-				}
-			case domain.ResearcherImpact:
-				impactEvidence = append(impactEvidence, m.Evidence...)
-			}
-		}
-
-		// Construct the proven finding
-		proven := domain.ProvenFinding{
-			ID:                  uuid.New(),
-			CandidateID:         validated.ID,
-			Title:               validated.Title,
-			Type:                validated.Type,
-			Severity:            validated.Severity,
-			Endpoint:            validated.Endpoint,
-			Description:         validated.Description,
-			DiscoveryEvidence:   discoveryEvidence,
-			ValidationEvidence:  validationEvidence,
-			ImpactEvidence:      impactEvidence,
-			ReproductionSteps:   validated.ReproductionSteps,
-			ValidatedAt:         time.Now().UTC(),
-		}
-
-		// Find the mission IDs
-		for _, m := range c.state.Missions {
-			if m.ResearcherType == domain.ResearcherAuthorization {
-				proven.DiscoveryMissionID = m.MissionID
-			}
-			if m.ResearcherType == domain.ResearcherValidation {
-				proven.ValidationMissionID = m.MissionID
-			}
-			if m.ResearcherType == domain.ResearcherImpact {
-				id := m.MissionID
-				proven.ImpactMissionID = &id
-			}
-		}
-
-		c.state.ProvenFindings = append(c.state.ProvenFindings, proven)
 	}
 
 	return nil
@@ -433,15 +469,101 @@ func (c *ResearchCoordinator) debrief(result *domain.MissionResult) {
 
 	// Remove resolved unknowns
 	if result.ResearcherType == domain.ResearcherRecon {
-		// Remove "API attack surface unknown" etc. when recon completes
 		c.state.Untested = removeMatching(c.state.Untested, "API attack surface unknown")
 		c.state.Untested = removeMatching(c.state.Untested, "Authentication model unknown")
 		if len(result.Users) >= 2 {
 			c.state.Untested = removeMatching(c.state.Untested, "Multi-tenant isolation unknown")
 		}
+
+		// Feed into property evaluator & attack graph
+		for _, ep := range result.Endpoints {
+			for _, p := range c.catalog.GenerateForEndpoint(ep) {
+				c.propertyEvaluator.Register(p)
+			}
+			c.attackGraph.AddNode(attackgraph.NodeResource, ep, fmt.Sprintf("API endpoint: %s", ep), 0.9)
+		}
+		for _, u := range result.Users {
+			c.attackGraph.AddNode(attackgraph.NodePrincipal, u, fmt.Sprintf("Identified principal: %s", u), 0.95)
+		}
 	}
 	if result.ResearcherType == domain.ResearcherAuthorization {
 		c.state.Untested = removeMatching(c.state.Untested, "Authorization boundaries unknown")
+	}
+	if result.ResearcherType == domain.ResearcherWorkflow {
+		c.state.Untested = removeMatching(c.state.Untested, "Workflow state transition enforcement is untested")
+		for _, p := range c.catalog.GenerateForWorkflow("order_flow", []string{"created", "checkout", "paid", "confirmed"}) {
+			c.propertyEvaluator.Register(p)
+		}
+	}
+
+	// Record weaknesses & impact in attack graph
+	for _, cand := range result.CandidateFindings {
+		wnode := c.attackGraph.AddNode(attackgraph.NodeWeakness, cand.Title, cand.Description, 0.9)
+		if epNode, ok := c.attackGraph.GetNodeByLabel(cand.Endpoint); ok {
+			c.attackGraph.AddEdge(epNode.ID, wnode.ID, attackgraph.EdgeLeadsTo, "hosts vulnerability", 0.9)
+		}
+	}
+}
+
+// finalizeFindings synthesizes validated candidates and evidence into proven findings.
+func (c *ResearchCoordinator) finalizeFindings() {
+	if len(c.state.Validated) == 0 || len(c.state.ProvenFindings) > 0 {
+		return
+	}
+
+	for _, validated := range c.state.Validated {
+		var discoveryEvidence, validationEvidence, impactEvidence []domain.ExperimentEvidence
+		var discoveryMissionID, validationMissionID uuid.UUID
+		var impactMissionID *uuid.UUID
+
+		for _, m := range c.state.Missions {
+			switch m.ResearcherType {
+			case domain.ResearcherAuthorization, domain.ResearcherWorkflow:
+				for _, ev := range m.Evidence {
+					if ev.IsAnomalous {
+						discoveryEvidence = append(discoveryEvidence, ev)
+					}
+				}
+				discoveryMissionID = m.MissionID
+			case domain.ResearcherValidation:
+				for _, ev := range m.Evidence {
+					if ev.IsAnomalous {
+						validationEvidence = append(validationEvidence, ev)
+					}
+				}
+				validationMissionID = m.MissionID
+			case domain.ResearcherImpact:
+				impactEvidence = append(impactEvidence, m.Evidence...)
+				id := m.MissionID
+				impactMissionID = &id
+			}
+		}
+
+		proven := domain.ProvenFinding{
+			ID:                  uuid.New(),
+			CandidateID:         validated.ID,
+			Title:               validated.Title,
+			Type:                validated.Type,
+			Severity:            validated.Severity,
+			Endpoint:            validated.Endpoint,
+			Description:         validated.Description,
+			DiscoveryEvidence:   discoveryEvidence,
+			ValidationEvidence:  validationEvidence,
+			ImpactEvidence:      impactEvidence,
+			ReproductionSteps:   validated.ReproductionSteps,
+			DiscoveryMissionID:  discoveryMissionID,
+			ValidationMissionID: validationMissionID,
+			ImpactMissionID:     impactMissionID,
+			ValidatedAt:         time.Now().UTC(),
+		}
+
+		c.state.ProvenFindings = append(c.state.ProvenFindings, proven)
+
+		// Record impact in attack graph
+		impNode := c.attackGraph.AddNode(attackgraph.NodeImpact, proven.Title+" Impact", proven.Description, 0.95)
+		if valNode, ok := c.attackGraph.GetNodeByLabel(proven.Title); ok {
+			c.attackGraph.AddEdge(valNode.ID, impNode.ID, attackgraph.EdgeLeadsTo, "demonstrates impact", 0.95)
+		}
 	}
 }
 

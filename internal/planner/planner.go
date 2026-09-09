@@ -36,37 +36,40 @@ const (
 
 // ResearchAction represents a single concrete step planned by the engine.
 type ResearchAction struct {
-	ID                 uuid.UUID               `json:"id"`
-	Phase              ResearchPhase           `json:"phase"`
-	Tool               string                  `json:"tool"`
-	Target             string                  `json:"target"`
-	CommandArgs        []string                `json:"command_args"`
-	Reason             string                  `json:"reason"`
-	Risk               ActionRisk              `json:"risk"`
-	RequiresApproval   bool                    `json:"requires_approval"`
-	HypothesisID       *uuid.UUID              `json:"hypothesis_id,omitempty"`
+	ID                  uuid.UUID                 `json:"id"`
+	Phase               ResearchPhase             `json:"phase"`
+	Tool                string                    `json:"tool"`
+	Target              string                    `json:"target"`
+	CommandArgs         []string                  `json:"command_args"`
+	Reason              string                    `json:"reason"`
+	Risk                ActionRisk                `json:"risk"`
+	RequiresApproval    bool                      `json:"requires_approval"`
+	HypothesisID        *uuid.UUID                `json:"hypothesis_id,omitempty"`
+	PriorityScore       float64                   `json:"priority_score"`
+	ScoreBreakdown      *ActionScoreBreakdown     `json:"score_breakdown,omitempty"`
 	ScopeClassification scope.AssetClassification `json:"scope_classification"`
-	CreatedAt          time.Time               `json:"created_at"`
-	Status             string                  `json:"status"` // "planned", "running", "completed", "skipped", "failed"
+	CreatedAt           time.Time                 `json:"created_at"`
+	Status              string                    `json:"status"` // "planned", "running", "completed", "skipped", "failed"
 }
 
 // Plan tracks the staged research progression for a target.
 type Plan struct {
-	ID              uuid.UUID         `json:"id"`
-	Target          string            `json:"target"`
-	Environment     string            `json:"environment"`
-	CurrentPhase    ResearchPhase     `json:"current_phase"`
-	PlannedActions  []*ResearchAction `json:"planned_actions"`
+	ID               uuid.UUID         `json:"id"`
+	Target           string            `json:"target"`
+	Environment      string            `json:"environment"`
+	CurrentPhase     ResearchPhase     `json:"current_phase"`
+	PlannedActions   []*ResearchAction `json:"planned_actions"`
 	CompletedActions []*ResearchAction `json:"completed_actions"`
-	CreatedAt       time.Time         `json:"created_at"`
-	UpdatedAt       time.Time         `json:"updated_at"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
 }
 
-// Planner generates and adapts the research action plan dynamically.
+// Planner generates, adapts, and prioritizes the research action plan dynamically.
 type Planner struct {
-	mu           sync.RWMutex
-	scopeEngine  *scope.ScopeEngine
-	currentPlan  *Plan
+	mu          sync.RWMutex
+	scopeEngine *scope.ScopeEngine
+	feedback    LearningFeedbackProvider
+	currentPlan *Plan
 }
 
 // NewPlanner creates a new Research Planner.
@@ -85,6 +88,13 @@ func NewPlanner(scopeEngine *scope.ScopeEngine, target, environment string) *Pla
 	}
 }
 
+// SetFeedbackProvider attaches a learning feedback provider for information gain scoring.
+func (p *Planner) SetFeedbackProvider(fb LearningFeedbackProvider) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.feedback = fb
+}
+
 // GetPlan returns the current research plan.
 func (p *Planner) GetPlan() *Plan {
 	p.mu.RLock()
@@ -92,12 +102,12 @@ func (p *Planner) GetPlan() *Plan {
 	return p.currentPlan
 }
 
-// AdaptPlan analyzes current knowledge graph entities, hypotheses, and completed actions to generate next actions.
+// AdaptPlan analyzes current knowledge graph entities, hypotheses, and completed actions to generate and rank next actions.
 func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.ResearchHypothesis) []*ResearchAction {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	var nextActions []*ResearchAction
+	var newActions []*ResearchAction
 	now := time.Now().UTC()
 	target := p.currentPlan.Target
 
@@ -115,7 +125,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 	// 1. Passive Recon Actions (if in Passive phase or new roots)
 	if p.currentPlan.CurrentPhase == PhasePassiveRecon {
 		if !executed["subfinder:"+target] {
-			nextActions = append(nextActions, &ResearchAction{
+			newActions = append(newActions, &ResearchAction{
 				ID:                  uuid.New(),
 				Phase:               PhasePassiveRecon,
 				Tool:                "subfinder",
@@ -130,7 +140,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 			})
 		}
 		if !executed["assetfinder:"+target] {
-			nextActions = append(nextActions, &ResearchAction{
+			newActions = append(newActions, &ResearchAction{
 				ID:                  uuid.New(),
 				Phase:               PhasePassiveRecon,
 				Tool:                "assetfinder",
@@ -147,10 +157,8 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 	}
 
 	// 2. Active Mapping Actions (for discovered domains / subdomains)
-	subdomainCount := 0
 	for _, e := range entities {
 		if e.Type == domain.EntityDomain || e.Type == domain.EntitySubdomain || e.Type == domain.EntityIPAddress {
-			subdomainCount++
 			val := e.Value
 			// Validate with scope engine
 			cls, _ := p.scopeEngine.ClassifyAsset(val)
@@ -159,7 +167,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 			}
 
 			if !executed["httpx:"+val] {
-				nextActions = append(nextActions, &ResearchAction{
+				newActions = append(newActions, &ResearchAction{
 					ID:                  uuid.New(),
 					Phase:               PhaseActiveMapping,
 					Tool:                "httpx",
@@ -192,7 +200,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 
 			if strings.HasPrefix(val, "http://") || strings.HasPrefix(val, "https://") {
 				if !executed["katana:"+val] {
-					nextActions = append(nextActions, &ResearchAction{
+					newActions = append(newActions, &ResearchAction{
 						ID:                  uuid.New(),
 						Phase:               PhaseEndpointDiscovery,
 						Tool:                "katana",
@@ -207,7 +215,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 					})
 				}
 				if !executed["ffuf:"+val] {
-					nextActions = append(nextActions, &ResearchAction{
+					newActions = append(newActions, &ResearchAction{
 						ID:                  uuid.New(),
 						Phase:               PhaseEndpointDiscovery,
 						Tool:                "ffuf",
@@ -230,6 +238,9 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 		if h.Status == hypothesis.StatusUnvalidated || h.Status == hypothesis.StatusPlausible || h.Status == hypothesis.StatusSupported {
 			hypID := h.ID
 			targetVal := h.Target
+			if len(h.SupportingEvidence) > 0 && h.SupportingEvidence[0].RawValue != "" && (strings.HasPrefix(h.SupportingEvidence[0].RawValue, "http") || strings.Contains(h.SupportingEvidence[0].RawValue, "/")) {
+				targetVal = h.SupportingEvidence[0].RawValue
+			}
 			cls, _ := p.scopeEngine.ClassifyAsset(targetVal)
 			if cls != scope.AssetInScope && targetVal != "" {
 				continue
@@ -240,7 +251,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 			case hypothesis.CatBOLA:
 				actionKey := fmt.Sprintf("bola_probe:%s:%s", h.ID, targetVal)
 				if !executed[actionKey] {
-					nextActions = append(nextActions, &ResearchAction{
+					newActions = append(newActions, &ResearchAction{
 						ID:                  uuid.New(),
 						Phase:               PhaseHypothesisTesting,
 						Tool:                "httpx",
@@ -258,7 +269,7 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 			case hypothesis.CatSSRF:
 				actionKey := fmt.Sprintf("ssrf_probe:%s:%s", h.ID, targetVal)
 				if !executed[actionKey] {
-					nextActions = append(nextActions, &ResearchAction{
+					newActions = append(newActions, &ResearchAction{
 						ID:                  uuid.New(),
 						Phase:               PhaseHypothesisTesting,
 						Tool:                "httpx",
@@ -273,10 +284,28 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 						Status:              "planned",
 					})
 				}
+			case hypothesis.CatAuthBoundary, hypothesis.CatPrivilegeEsc:
+				actionKey := fmt.Sprintf("auth_probe:%s:%s", h.ID, targetVal)
+				if !executed[actionKey] {
+					newActions = append(newActions, &ResearchAction{
+						ID:                  uuid.New(),
+						Phase:               PhaseHypothesisTesting,
+						Tool:                "httpx",
+						Target:              targetVal,
+						CommandArgs:         []string{"-u", targetVal, "-silent", "-status-code"},
+						Reason:              fmt.Sprintf("Authentication and privilege boundary probe for %s", h.Title),
+						Risk:                RiskMedium,
+						RequiresApproval:    p.requiresApproval(RiskMedium),
+						HypothesisID:        &hypID,
+						ScopeClassification: scope.AssetInScope,
+						CreatedAt:           now,
+						Status:              "planned",
+					})
+				}
 			case hypothesis.CatNovelAnomaly, hypothesis.CatInjection:
 				actionKey := fmt.Sprintf("anomaly_test:%s:%s", h.ID, targetVal)
 				if !executed[actionKey] {
-					nextActions = append(nextActions, &ResearchAction{
+					newActions = append(newActions, &ResearchAction{
 						ID:                  uuid.New(),
 						Phase:               PhaseHypothesisTesting,
 						Tool:                "kxss",
@@ -295,11 +324,34 @@ func (p *Planner) AdaptPlan(entities []domain.Entity, hyps []*hypothesis.Researc
 		}
 	}
 
-	// Update plan
-	p.currentPlan.PlannedActions = append(p.currentPlan.PlannedActions, nextActions...)
+	// Combine all planned actions
+	allPlanned := append(p.currentPlan.PlannedActions, newActions...)
+
+	// Filter out actions linked to REJECTED or CONTRADICTED hypotheses (or severely deprioritize them)
+	hypMap := make(map[uuid.UUID]*hypothesis.ResearchHypothesis)
+	for _, h := range hyps {
+		hypMap[h.ID] = h
+	}
+
+	var activePlanned []*ResearchAction
+	for _, a := range allPlanned {
+		if a.HypothesisID != nil {
+			if h, ok := hypMap[*a.HypothesisID]; ok {
+				if h.Status == hypothesis.StatusRejected {
+					// Drop actions linked to rejected hypotheses
+					continue
+				}
+			}
+		}
+		activePlanned = append(activePlanned, a)
+	}
+
+	// Rank actions dynamically using Information Gain and Learning Feedback
+	ranked := RankActions(activePlanned, hyps, p.feedback)
+	p.currentPlan.PlannedActions = ranked
 	p.currentPlan.UpdatedAt = now
 
-	return nextActions
+	return newActions
 }
 
 // MarkActionCompleted updates the state of an action in the plan.
@@ -327,8 +379,6 @@ func (p *Planner) AdvancePhase(phase ResearchPhase) {
 }
 
 func (p *Planner) requiresApproval(risk ActionRisk) bool {
-	// In HTB/Lab environments, passive and low/medium risk actions are auto-approved.
-	// In Authorized/Bug Bounty environments, anything above passive requires human approval.
 	env := strings.ToLower(p.currentPlan.Environment)
 	if env == "htb" || env == "lab" {
 		return risk == RiskHigh || risk == RiskCritical

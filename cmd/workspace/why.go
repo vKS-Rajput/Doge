@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
@@ -32,13 +34,32 @@ behind a research hypothesis or recommendation.`,
 				return nil
 			}
 
-			scopeEngine, _ := scope.NewEngine(scope.Config{
-				Target:      state.Target,
-				Environment: string(state.Environment),
-				InScope:     []string{state.Target, "*." + state.Target},
-			})
+			cfg, err := scope.LoadConfig(wsPath)
+			if err != nil {
+				cfg = &scope.Config{
+					Target:      state.Target,
+					Environment: string(state.Environment),
+					InScope:     []string{state.Target, "*." + state.Target},
+					Rules:       scope.DefaultProgramRules(),
+				}
+			}
 
+			scopeEngine, _ := scope.NewEngine(*cfg)
 			hypEngine := hypothesis.NewEngine()
+
+			// Load persisted hypotheses from research session
+			resSessPath := filepath.Join(wsPath, ".doge", "research_session.json")
+			if data, err := os.ReadFile(resSessPath); err == nil {
+				var snap struct {
+					Hypotheses []*hypothesis.ResearchHypothesis `json:"hypotheses"`
+				}
+				if err := json.Unmarshal(data, &snap); err == nil {
+					for _, h := range snap.Hypotheses {
+						hypEngine.AddHypothesis(h)
+					}
+				}
+			}
+
 			explainer := explain.New(scopeEngine, hypEngine, nil)
 
 			expl, err := explainer.ExplainHypothesis(hypID)

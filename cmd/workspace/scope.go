@@ -26,13 +26,17 @@ Pass a hostname, IP address, or URL to evaluate its classification (In-Scope, Ou
 				return nil
 			}
 
-			// Initialize ScopeEngine from session target
-			cfg := scope.Config{
-				Target:      state.Target,
-				Environment: string(state.Environment),
-				InScope:     []string{state.Target, "*." + state.Target},
+			// Initialize ScopeEngine from persisted config or session target
+			cfg, err := scope.LoadConfig(wsPath)
+			if err != nil {
+				cfg = &scope.Config{
+					Target:      state.Target,
+					Environment: string(state.Environment),
+					InScope:     []string{state.Target, "*." + state.Target},
+					Rules:       scope.DefaultProgramRules(),
+				}
 			}
-			scopeEngine, err := scope.NewEngine(cfg)
+			scopeEngine, err := scope.NewEngine(*cfg)
 			if err != nil {
 				return fmt.Errorf("initializing scope engine: %w", err)
 			}

@@ -35,7 +35,7 @@ var (
 	privilegedRouteRegex = regexp.MustCompile(`/(?:admin|internal|manager|management|dashboard|superadmin|root|system|debug|actuator|metrics|metrics/prometheus|v1/management)`)
 
 	// SSRF / URL Ingestion parameter names
-	ssrfParamRegex = regexp.MustCompile(`(?i)^(?:url|uri|dest|destination|redirect|redirect_to|next|callback|webhook|webhook_url|feed|proxy|source|target_url|load_url|fetch|image_url|avatar_url|endpoint|redirect_url|return_url)$`)
+	ssrfParamRegex = regexp.MustCompile(`(?i)^(?:url|uri|dest|dest_url|destination|redirect|redirect_to|next|callback|webhook|webhook_url|feed|proxy|source|source_url|target_url|load_url|fetch|fetch_url|image_url|avatar_url|endpoint|endpoint_url|redirect_url|return_url|site|path|out|outgoing|forward|forward_url|open|link|goto|continue|service|service_url|host|remote)$`)
 
 	// CORS reflection
 	corsOriginRegex = regexp.MustCompile(`(?i)access-control-allow-origin:\s*(\*|https?://[^\s]+)`)
@@ -165,54 +165,74 @@ func (e *Engine) AnalyzeEvidence(ctx context.Context, entities []domain.Entity, 
 
 	// 3. Detect SSRF / URL Ingestion Parameters
 	for _, ent := range entities {
+		var paramName string
+		var target string
+		var rawVal string
+
 		if ent.Type == domain.EntityParameter {
-			paramName := ent.Value
-			if ssrfParamRegex.MatchString(paramName) {
-				target := ""
+			if ssrfParamRegex.MatchString(ent.Value) {
+				paramName = ent.Value
 				if host, ok := ent.Attributes["host"].(string); ok {
 					target = host
 				}
-				title := fmt.Sprintf("URL Ingestion Parameter (%s)", paramName)
-
-				hyp := e.findOrCreateHypothesis(target, CatSSRF, title, func() *ResearchHypothesis {
-					return &ResearchHypothesis{
-						ID:        uuid.New(),
-						Title:     title,
-						Statement: fmt.Sprintf("Parameter %q accepts URL/destination inputs. If server fetches external or internal resources without strict DNS validation and IP egress controls, SSRF or open redirect is plausible.", paramName),
-						Target:    target,
-						Tier:      TierHypothesis,
-						Status:    StatusUnvalidated,
-						Category:  CatSSRF,
-						Confidence: 0.55,
-						SupportingEvidence: []EvidenceRef{
-							{
-								SourceTool:  "doge_surface",
-								Description: fmt.Sprintf("Discovered URL-like parameter %q", paramName),
-								RawValue:    paramName,
-							},
-						},
-						ValidationSteps: []ValidationRequirement{
-							{
-								StepNumber:         1,
-								ActionDescription:  "Check if server accepts external domain callback / webhook parameter",
-								ExpectedProof:      "Out-of-band DNS/HTTP interaction from server IP",
-								RequiresScopeCheck: true,
-								RequiresHumanGate:  true,
-							},
-						},
-						RefutationCriteria:   "Server strictly validates whitelist of allowable domains or rejects remote URL fetching",
-						ConfirmationCriteria: "Server initiates network connections to arbitrary external or internal IP addresses based on user parameter",
-						FirstObservedAt:      now,
-						LastEvaluatedAt:      now,
-					}
-				})
-				newOrUpdated = append(newOrUpdated, hyp)
+				rawVal = ent.Value
 			}
+		} else if ent.Type == domain.EntityEndpoint || ent.Type == domain.EntityURL {
+			if strings.Contains(ent.Value, "?") {
+				parts := strings.SplitN(ent.Value, "?", 2)
+				queryParams := strings.Split(parts[1], "&")
+				for _, qp := range queryParams {
+					kv := strings.SplitN(qp, "=", 2)
+					pKey := kv[0]
+					if ssrfParamRegex.MatchString(pKey) {
+						paramName = pKey
+						target = extractTarget(ent.Value)
+						rawVal = ent.Value
+						break
+					}
+				}
+			}
+		}
+
+		if paramName != "" {
+			title := fmt.Sprintf("URL Ingestion Parameter (%s) on %s", paramName, rawVal)
+			hyp := e.findOrCreateHypothesis(target, CatSSRF, title, func() *ResearchHypothesis {
+				return &ResearchHypothesis{
+					ID:        uuid.New(),
+					Title:     title,
+					Statement: fmt.Sprintf("Parameter %q on %s accepts URL/destination inputs. If server fetches external or internal resources without strict DNS validation and IP egress controls, SSRF or open redirect is plausible.", paramName, rawVal),
+					Target:    target,
+					Tier:      TierHypothesis,
+					Status:    StatusUnvalidated,
+					Category:  CatSSRF,
+					Confidence: 0.55,
+					SupportingEvidence: []EvidenceRef{
+						{
+							SourceTool:  "doge_surface",
+							Description: fmt.Sprintf("Discovered URL-like parameter %q on %s", paramName, rawVal),
+							RawValue:    rawVal,
+						},
+					},
+					ValidationSteps: []ValidationRequirement{
+						{
+							StepNumber:         1,
+							ActionDescription:  "Check if server accepts external domain callback / webhook parameter",
+							ExpectedProof:      "Out-of-band DNS/HTTP interaction from server IP",
+							RequiresScopeCheck: true,
+							RequiresHumanGate:  true,
+						},
+					},
+					RefutationCriteria:   "Server strictly validates whitelist of allowable domains or rejects remote URL fetching",
+					ConfirmationCriteria: "Server initiates network connections to arbitrary external or internal IP addresses based on user parameter",
+					FirstObservedAt:      now,
+					LastEvaluatedAt:      now,
+				}
+			})
+			newOrUpdated = append(newOrUpdated, hyp)
 		}
 	}
 
 	// 4. Detect Novel Behavioral Anomalies (Combinations of observations)
-	// Example: Endpoint with authentication headers + dynamic parameters + unusual status codes or reflection
 	var authObs []domain.Observation
 	var reflObs []domain.Observation
 	for _, obs := range observations {
@@ -264,6 +284,138 @@ func (e *Engine) AnalyzeEvidence(ctx context.Context, entities []domain.Entity, 
 		newOrUpdated = append(newOrUpdated, hyp)
 	}
 
+	// 5. Detect Subdomain Attack Surface Patterns
+	for _, ent := range entities {
+		if ent.Type == domain.EntitySubdomain || ent.Type == domain.EntityDomain {
+			sub := strings.ToLower(ent.Value)
+
+			// QA / Branch / Staging Environments
+			if strings.Contains(sub, "qa-") || strings.Contains(sub, "branch") || strings.Contains(sub, "trunk") || strings.Contains(sub, "test-") || strings.Contains(sub, "staging") {
+				title := fmt.Sprintf("Pre-Production Staging Surface (%s)", sub)
+				hyp := e.findOrCreateHypothesis(sub, CatAuthBoundary, title, func() *ResearchHypothesis {
+					return &ResearchHypothesis{
+						ID:        uuid.New(),
+						Title:     title,
+						Statement: fmt.Sprintf("Subdomain %s indicates a pre-production/QA staging environment. Staging assets typically exhibit weaker authentication boundaries, debug endpoints, or legacy API endpoints.", sub),
+						Target:    sub,
+						Tier:      TierHypothesis,
+						Status:    StatusUnvalidated,
+						Category:  CatAuthBoundary,
+						Confidence: 0.70,
+						SupportingEvidence: []EvidenceRef{
+							{
+								SourceTool:  "doge_materializer",
+								Description: fmt.Sprintf("Identified pre-production staging naming pattern in host %s", sub),
+								RawValue:    sub,
+							},
+						},
+						ValidationSteps: []ValidationRequirement{
+							{
+								StepNumber:         1,
+								ActionDescription:  "Perform passive banner probe and inspect response headers for debug/staging flags",
+								ExpectedProof:      "Staging/QA indicators in headers or response body",
+								RefutationProof:    "Production-grade hardened configuration with strict access control",
+								RequiresScopeCheck: true,
+								RequiresHumanGate:  false,
+							},
+							{
+								StepNumber:         2,
+								ActionDescription:  "Verify whether authentication endpoints on staging accept test/default credentials or bypass MFA",
+								ExpectedProof:      "Differential authentication policies vs production",
+								RefutationProof:    "Identical zero-trust SSO enforcement",
+								RequiresScopeCheck: true,
+								RequiresHumanGate:  true,
+							},
+						},
+						RefutationCriteria:   "Staging host enforces identical zero-trust authentication and does not leak debug functionality",
+						ConfirmationCriteria: "Staging host exposes internal APIs, debug panels, or bypassable authentication",
+						FirstObservedAt:      now,
+						LastEvaluatedAt:      now,
+					}
+				})
+				newOrUpdated = append(newOrUpdated, hyp)
+			}
+
+			// Authentication Gateways
+			if strings.HasPrefix(sub, "auth.") || strings.HasPrefix(sub, "login.") || strings.HasPrefix(sub, "sso.") || strings.HasPrefix(sub, "oauth.") {
+				title := fmt.Sprintf("Centralized Authentication Gateway (%s)", sub)
+				hyp := e.findOrCreateHypothesis(sub, CatAuthBoundary, title, func() *ResearchHypothesis {
+					return &ResearchHypothesis{
+						ID:        uuid.New(),
+						Title:     title,
+						Statement: fmt.Sprintf("Host %s serves as a centralized identity/authentication gateway. Critical attack surface for OAuth redirect manipulation, token leakage, or SAML/OIDC misconfigurations.", sub),
+						Target:    sub,
+						Tier:      TierHypothesis,
+						Status:    StatusUnvalidated,
+						Category:  CatAuthBoundary,
+						Confidence: 0.75,
+						SupportingEvidence: []EvidenceRef{
+							{
+								SourceTool:  "doge_materializer",
+								Description: fmt.Sprintf("Identified identity provider service endpoint: %s", sub),
+								RawValue:    sub,
+							},
+						},
+						ValidationSteps: []ValidationRequirement{
+							{
+								StepNumber:         1,
+								ActionDescription:  "Map OAuth/OIDC client redirect URI validation on authorization endpoints",
+								ExpectedProof:      "Acceptance of arbitrary or subdomain-wildcard redirect_uri parameters",
+								RefutationProof:    "Strict exact-match redirect_uri validation",
+								RequiresScopeCheck: true,
+								RequiresHumanGate:  false,
+							},
+						},
+						RefutationCriteria:   "Auth gateway strictly validates exact redirect URIs and signs all state tokens",
+						ConfirmationCriteria: "Auth gateway permits open redirects or leaks authorization codes/tokens cross-domain",
+						FirstObservedAt:      now,
+						LastEvaluatedAt:      now,
+					}
+				})
+				newOrUpdated = append(newOrUpdated, hyp)
+			}
+
+			// IoT Edge & Message Broker Services
+			if strings.HasPrefix(sub, "edge.") || strings.HasPrefix(sub, "push.") || strings.HasPrefix(sub, "mq.") || strings.HasPrefix(sub, "lw.") {
+				title := fmt.Sprintf("IoT Edge & Messaging Infrastructure (%s)", sub)
+				hyp := e.findOrCreateHypothesis(sub, CatNovelAnomaly, title, func() *ResearchHypothesis {
+					return &ResearchHypothesis{
+						ID:        uuid.New(),
+						Title:     title,
+						Statement: fmt.Sprintf("Host %s provides IoT edge telemetry, LwM2M, or message broker capabilities. Risk of unauthenticated device registration, unauthorized broker pub/sub, or message injection.", sub),
+						Target:    sub,
+						Tier:      TierHypothesis,
+						Status:    StatusUnvalidated,
+						Category:  CatNovelAnomaly,
+						Confidence: 0.65,
+						SupportingEvidence: []EvidenceRef{
+							{
+								SourceTool:  "doge_materializer",
+								Description: fmt.Sprintf("Identified IoT edge/message broker host: %s", sub),
+								RawValue:    sub,
+							},
+						},
+						ValidationSteps: []ValidationRequirement{
+							{
+								StepNumber:         1,
+								ActionDescription:  "Probe open broker ports (MQTT 1883/8883, LwM2M CoAP 5683/5684, AMQP 5672) and test authentication requirement",
+								ExpectedProof:      "Broker accepts anonymous connections or default credentials",
+								RefutationProof:    "Mutual TLS / strict device token authentication required",
+								RequiresScopeCheck: true,
+								RequiresHumanGate:  true,
+							},
+						},
+						RefutationCriteria:   "Edge/broker service enforces mutual TLS or cryptographically verified device tokens",
+						ConfirmationCriteria: "Anonymous access allows publishing/subscribing to device telemetry channels",
+						FirstObservedAt:      now,
+						LastEvaluatedAt:      now,
+					}
+				})
+				newOrUpdated = append(newOrUpdated, hyp)
+			}
+		}
+	}
+
 	return newOrUpdated
 }
 
@@ -277,6 +429,16 @@ func (e *Engine) ListHypotheses() []*ResearchHypothesis {
 		list = append(list, h)
 	}
 	return list
+}
+
+// AddHypothesis registers a hypothesis directly in the engine.
+func (e *Engine) AddHypothesis(h *ResearchHypothesis) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.hypotheses[h.ID] = h
+	if h.Target != "" {
+		e.targetIndex[h.Target] = append(e.targetIndex[h.Target], h.ID)
+	}
 }
 
 // GetHypothesis retrieves a single hypothesis by ID.

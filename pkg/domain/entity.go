@@ -34,6 +34,12 @@ const (
 	EntityCSPDirective    EntityType = "csp_directive"
 	EntityCORSConfig      EntityType = "cors_config"
 	EntityAuthMechanism   EntityType = "auth_mechanism"
+	EntityPrincipal       EntityType = "principal"
+	EntityTenant          EntityType = "tenant"
+	EntityAccount         EntityType = "account"
+	EntityObject          EntityType = "object"
+	EntityStateNode       EntityType = "state_node"
+	EntityWorkflow        EntityType = "workflow"
 	EntityNote            EntityType = "note"
 	EntityFindingRef      EntityType = "finding_ref"
 )

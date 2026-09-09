@@ -50,13 +50,18 @@ Enforces fail-closed hard scope boundaries, epistemic tiers, and human-in-the-lo
 				return nil
 			}
 
-			// Build Scope Engine
-			scopeEngine, err := scope.NewEngine(scope.Config{
-				Target:      state.Target,
-				Environment: string(state.Environment),
-				InScope:     []string{state.Target, "*." + state.Target},
-				Rules:       scope.DefaultProgramRules(),
-			})
+			// Build Scope Engine (from persisted scope config or session target)
+			cfg, err := scope.LoadConfig(absPath)
+			if err != nil {
+				cfg = &scope.Config{
+					Target:      state.Target,
+					Environment: string(state.Environment),
+					InScope:     []string{state.Target, "*." + state.Target},
+					Rules:       scope.DefaultProgramRules(),
+				}
+			}
+
+			scopeEngine, err := scope.NewEngine(*cfg)
 			if err != nil {
 				return fmt.Errorf("initializing scope: %w", err)
 			}
@@ -68,7 +73,7 @@ Enforces fail-closed hard scope boundaries, epistemic tiers, and human-in-the-lo
 			mem := learning.NewMemory(nil)
 			learner := learning.NewLearner(mem)
 
-			cfg := research.Config{
+			researchCfg := research.Config{
 				Target:          state.Target,
 				Environment:     string(state.Environment),
 				WorkspacePath:   absPath,
@@ -77,7 +82,7 @@ Enforces fail-closed hard scope boundaries, epistemic tiers, and human-in-the-lo
 				AllowAutoRecon:  autoRecon || state.Environment == "htb" || state.Environment == "lab",
 			}
 
-			engine := research.NewLoopEngine(cfg, scopeEngine, gateMgr, parserReg, learner, mem)
+			engine := research.NewLoopEngine(researchCfg, scopeEngine, gateMgr, parserReg, learner, mem)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -94,8 +99,8 @@ Enforces fail-closed hard scope boundaries, epistemic tiers, and human-in-the-lo
 			fmt.Println()
 			fmt.Println("🐕 DOGE Autonomous Research Engine")
 			fmt.Printf("Target:       %s (%s)\n", state.Target, state.Environment)
-			fmt.Printf("Auto-Recon:   %v\n", cfg.AllowAutoRecon)
-			fmt.Printf("Iterations:   %d (max)\n", cfg.MaxIterations)
+			fmt.Printf("Auto-Recon:   %v\n", researchCfg.AllowAutoRecon)
+			fmt.Printf("Iterations:   %d (max)\n", researchCfg.MaxIterations)
 			fmt.Println("──────────────────────────────────────────")
 			fmt.Println()
 

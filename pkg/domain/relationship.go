@@ -35,6 +35,14 @@ const (
 	RelRedirectsTo     RelationshipType = "redirects_to"
 	RelRelatedTo       RelationshipType = "related_to"
 	RelPartOf          RelationshipType = "part_of"
+	RelAuthenticatesAs RelationshipType = "authenticates_as"
+	RelBelongsTo       RelationshipType = "belongs_to"
+	RelCanAccess       RelationshipType = "can_access"
+	RelExposedBy       RelationshipType = "exposed_by"
+	RelAcceptsParam    RelationshipType = "accepts_parameter"
+	RelChangesState    RelationshipType = "changes_state"
+	RelTransitionsTo   RelationshipType = "transitions_to"
+	RelOwnsObject      RelationshipType = "owns_object"
 )
 
 // Relationship is a typed, directed edge in the Knowledge Graph

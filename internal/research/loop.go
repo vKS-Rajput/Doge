@@ -2,6 +2,7 @@ package research
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	_ "modernc.org/sqlite"
+
 	"github.com/vKS-Rajput/doge/internal/gates"
 	"github.com/vKS-Rajput/doge/internal/hypothesis"
 	"github.com/vKS-Rajput/doge/internal/learning"
@@ -83,19 +86,63 @@ func NewLoopEngine(
 
 	p := planner.NewPlanner(scopeEngine, cfg.Target, cfg.Environment)
 
+	var initialEntities []domain.Entity
+	var initialObservations []domain.Observation
+
+	// Load existing entities and observations from workspace database if available
+	if cfg.WorkspacePath != "" {
+		dbPath := filepath.Join(cfg.WorkspacePath, ".doge", "workspace.db")
+		if _, err := os.Stat(dbPath); err == nil {
+			if dbConn, err := sql.Open("sqlite", dbPath); err == nil {
+				defer dbConn.Close()
+				rows, err := dbConn.Query("SELECT id, type, value FROM entities")
+				if err == nil {
+					for rows.Next() {
+						var ent domain.Entity
+						var idStr, entType, entVal string
+						if err := rows.Scan(&idStr, &entType, &entVal); err == nil {
+							ent.ID, _ = uuid.Parse(idStr)
+							ent.Type = domain.EntityType(entType)
+							ent.Value = entVal
+							initialEntities = append(initialEntities, ent)
+						}
+					}
+					rows.Close()
+				}
+				obsRows, err := dbConn.Query("SELECT id, type, source_tool, raw_value FROM observations")
+				if err == nil {
+					for obsRows.Next() {
+						var obs domain.Observation
+						var idStr, obsType, srcTool, rawVal string
+						if err := obsRows.Scan(&idStr, &obsType, &srcTool, &rawVal); err == nil {
+							obs.ID, _ = uuid.Parse(idStr)
+							obs.Type = domain.ObservationType(obsType)
+							obs.SourceTool = srcTool
+							obs.RawValue = rawVal
+							initialObservations = append(initialObservations, obs)
+						}
+					}
+					obsRows.Close()
+				}
+			}
+		}
+	}
+
+	hypEng := hypothesis.NewEngine()
+
 	return &LoopEngine{
 		cfg:            cfg,
 		sessionID:      uuid.New(),
 		state:          StateIdle,
 		scopeEngine:    scopeEngine,
-		hypEngine:      hypothesis.NewEngine(),
+		hypEngine:      hypEng,
 		gateMgr:        gateMgr,
 		planner:        p,
 		learner:        learner,
 		learningMemory: learningMemory,
 		parserRegistry: parserRegistry,
-		entities:       make([]domain.Entity, 0),
-		observations:   make([]domain.Observation, 0),
+		entities:       initialEntities,
+		observations:   initialObservations,
 		auditLog:       make([]AuditEntry, 0),
 		startedAt:      time.Now().UTC(),
 		lastUpdatedAt:  time.Now().UTC(),
@@ -158,7 +205,12 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 
 	e.iteration++
 
-	// 3. Adapt Research Plan based on current Knowledge Graph & Hypotheses
+	// 3. Epistemic Hypothesis Analysis from current evidence
+	newHyps := e.hypEngine.AnalyzeEvidence(ctx, e.entities, nil, e.observations)
+	res.NewHypotheses = len(newHyps)
+	res.NewObservations = len(e.observations)
+
+	// 4. Adapt Research Plan based on current Knowledge Graph & Hypotheses
 	hyps := e.hypEngine.ListHypotheses()
 	_ = e.planner.AdaptPlan(e.entities, hyps)
 
@@ -174,7 +226,7 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 	// Pick next action to evaluate
 	action := currentPlan.PlannedActions[0]
 
-	// 4. Hard Scope Validation (Machine-Enforced Fail-Closed)
+	// 5. Hard Scope Validation (Machine-Enforced Fail-Closed)
 	cls, scopeReason := e.scopeEngine.ClassifyAsset(action.Target)
 	if cls == scope.AssetOutOfScope || cls == scope.AssetUnknown {
 		e.planner.MarkActionCompleted(action.ID, "skipped_out_of_scope")
@@ -186,7 +238,7 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 		return res, nil
 	}
 
-	// 5. Gate Check (Approval vs Auto-Execution)
+	// 6. Gate Check (Approval vs Auto-Execution)
 	if action.RequiresApproval && !e.cfg.AllowAutoRecon {
 		hypTitle := ""
 		hypTier := ""
@@ -227,7 +279,7 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 		return res, nil
 	}
 
-	// 6. Execution & Evidence Observation
+	// 7. Execution & Evidence Observation
 	e.state = StateExecuting
 	res.ActionExecuted = action
 
@@ -245,7 +297,7 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 	}
 	e.planner.MarkActionCompleted(action.ID, "completed")
 
-	// 7. Parsing & Knowledge Graph Materialization
+	// 8. Parsing & Knowledge Graph Materialization
 	if runRes != nil && len(strings.TrimSpace(runRes.Stdout)) > 0 && e.parserRegistry != nil {
 		artifact := domain.Artifact{
 			ID:       uuid.New(),
@@ -298,11 +350,6 @@ func (e *LoopEngine) Step(ctx context.Context) (*StepResult, error) {
 			}
 		}
 	}
-
-	// 8. Epistemic Hypothesis Analysis
-	e.state = StateHypothesizing
-	newHyps := e.hypEngine.AnalyzeEvidence(ctx, e.entities, nil, e.observations)
-	res.NewHypotheses = len(newHyps)
 
 	// 9. Evaluate targeted hypotheses against criteria
 	if action.HypothesisID != nil {

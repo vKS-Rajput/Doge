@@ -12,9 +12,12 @@
 package scope
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -85,6 +88,36 @@ type Config struct {
 	AllowPrivateIPs    bool          `json:"allow_private_ips"`
 	Rules              ProgramRules  `json:"rules"`
 	CreatedAt          time.Time     `json:"created_at"`
+}
+
+// ScopeFile is the default filename for persisted scope configs.
+const ScopeFile = "scope.json"
+
+// SaveConfig writes the scope config to .doge/scope.json.
+func SaveConfig(workspacePath string, cfg Config) error {
+	dogeDir := filepath.Join(workspacePath, ".doge")
+	if err := os.MkdirAll(dogeDir, 0755); err != nil {
+		return fmt.Errorf("creating .doge dir: %w", err)
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling scope config: %w", err)
+	}
+	return os.WriteFile(filepath.Join(dogeDir, ScopeFile), data, 0644)
+}
+
+// LoadConfig reads the scope config from .doge/scope.json.
+func LoadConfig(workspacePath string) (*Config, error) {
+	path := filepath.Join(workspacePath, ".doge", ScopeFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing scope config: %w", err)
+	}
+	return &cfg, nil
 }
 
 // ScopeEngine provides deterministic, thread-safe scope evaluation.

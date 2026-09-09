@@ -28,10 +28,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/vKS-Rajput/doge/internal/attackgraph"
+	"github.com/vKS-Rajput/doge/internal/causal"
+	"github.com/vKS-Rajput/doge/internal/dimension"
 	"github.com/vKS-Rajput/doge/internal/director"
 	"github.com/vKS-Rajput/doge/internal/invariant"
+	"github.com/vKS-Rajput/doge/internal/ontology"
 	"github.com/vKS-Rajput/doge/internal/property"
 	"github.com/vKS-Rajput/doge/internal/researcher"
+	"github.com/vKS-Rajput/doge/internal/synthesis"
+	"github.com/vKS-Rajput/doge/pkg/ai"
 	"github.com/vKS-Rajput/doge/pkg/domain"
 )
 
@@ -123,10 +128,18 @@ type ResearchCoordinator struct {
 	catalog           *property.Catalog
 	director          *director.Director
 	miner             *invariant.Miner
+	causalGraph       *causal.SCMGraph
+	latentMiner       *dimension.LatentBasisMiner
+	ontologyExpander  *ontology.OntologyExpander
+	modelRouter       *ai.ModelRouter
+	cegar             *synthesis.CEGARSynthesizer
 }
 
 // NewResearchCoordinator creates a new coordinator for a target engagement.
 func NewResearchCoordinator(targetURL string, credentials map[string]string) *ResearchCoordinator {
+	router := ai.NewModelRouter("deterministic_brain")
+	router.RegisterProvider(ai.NewDeterministicModel())
+
 	return &ResearchCoordinator{
 		state: &ResearchState{
 			Untested: []string{
@@ -145,6 +158,11 @@ func NewResearchCoordinator(targetURL string, credentials map[string]string) *Re
 		catalog:           property.NewCatalog(),
 		director:          director.NewDirector(0.65),
 		miner:             invariant.NewMiner(),
+		causalGraph:       causal.NewSCMGraph(),
+		latentMiner:       dimension.NewLatentBasisMiner(),
+		ontologyExpander:  ontology.NewOntologyExpander(router),
+		modelRouter:       router,
+		cegar:             synthesis.NewCEGARSynthesizer(),
 	}
 }
 
@@ -181,6 +199,26 @@ func (c *ResearchCoordinator) Director() *director.Director {
 // Miner returns the coordinator's invariant miner.
 func (c *ResearchCoordinator) Miner() *invariant.Miner {
 	return c.miner
+}
+
+// CausalGraph returns the coordinator's Structural Causal Model.
+func (c *ResearchCoordinator) CausalGraph() *causal.SCMGraph {
+	return c.causalGraph
+}
+
+// LatentMiner returns the coordinator's latent behavioral basis miner.
+func (c *ResearchCoordinator) LatentMiner() *dimension.LatentBasisMiner {
+	return c.latentMiner
+}
+
+// OntologyExpander returns the coordinator's dynamic ontology expander.
+func (c *ResearchCoordinator) OntologyExpander() *ontology.OntologyExpander {
+	return c.ontologyExpander
+}
+
+// ModelRouter returns the coordinator's multi-provider model router.
+func (c *ResearchCoordinator) ModelRouter() *ai.ModelRouter {
+	return c.modelRouter
 }
 
 // Run executes the complete research loop dynamically until:
@@ -292,6 +330,12 @@ func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
 			} else if strings.Contains(strings.ToLower(candidate.Type), "batch") || strings.Contains(strings.ToLower(candidate.Type), "bleed") {
 				confCriteria = "Independent reproduction of batch context bleed with differential metamorphic control"
 				refutCriteria = "Cannot reproduce batch context bleed"
+			} else if strings.Contains(strings.ToLower(candidate.Type), "race") || strings.Contains(strings.ToLower(candidate.Type), "overdraw") {
+				confCriteria = "Independent reproduction of latent race window balance overdraw with differential control"
+				refutCriteria = "Cannot reproduce race condition overdraw"
+			} else if strings.Contains(strings.ToLower(candidate.Type), "cache") || strings.Contains(strings.ToLower(candidate.Type), "normalization") {
+				confCriteria = "Independent reproduction of cache normalization collision bleed with negative control"
+				refutCriteria = "Cannot reproduce cache normalization collision bleed"
 			} else {
 				confCriteria = "Independent reproduction of cross-tenant access with evidence"
 				refutCriteria = "Cannot reproduce cross-tenant access"
@@ -331,14 +375,19 @@ func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
 		}
 	}
 	hasBatchEndpoint := false
+	hasRaceEndpoint := false
+	hasCacheEndpoint := false
 	for _, ep := range c.state.Endpoints {
 		low := strings.ToLower(ep)
 		if strings.Contains(low, "batch") || strings.Contains(low, "bulk") || strings.Contains(low, "pipe") {
 			hasBatchEndpoint = true
-			break
+		} else if strings.Contains(low, "wallet/transfer") || strings.Contains(low, "transfer") {
+			hasRaceEndpoint = true
+		} else if strings.Contains(low, "reports") || strings.Contains(low, "cache") {
+			hasCacheEndpoint = true
 		}
 	}
-	if !anomalyRan && hasBatchEndpoint && c.hasResearcher(domain.ResearcherAnomaly) {
+	if !anomalyRan && (hasBatchEndpoint || hasRaceEndpoint || hasCacheEndpoint) && c.hasResearcher(domain.ResearcherAnomaly) {
 		return &domain.MissionBrief{
 			ID:              uuid.New(),
 			ResearcherType:  domain.ResearcherAnomaly,
@@ -538,6 +587,13 @@ func (c *ResearchCoordinator) debrief(result *domain.MissionResult) {
 		for _, u := range result.Users {
 			c.attackGraph.AddNode(attackgraph.NodePrincipal, u, fmt.Sprintf("Identified principal: %s", u), 0.95)
 		}
+
+		// Induce latent behavioral dimensions and build causal DAG
+		inducedDims := c.latentMiner.InduceDimensions(result.Endpoints, nil)
+		for _, dim := range inducedDims {
+			c.attackGraph.AddNode(attackgraph.NodeCapability, "Latent Dimension: "+dim.Name, string(dim.Type), dim.Confidence)
+			c.causalGraph.AddVariable(string(dim.Type), dim.Name, causal.VariableLatent, dim.Parameters)
+		}
 	}
 	if result.ResearcherType == domain.ResearcherAuthorization {
 		c.state.Untested = removeMatching(c.state.Untested, "Authorization boundaries unknown")
@@ -558,6 +614,28 @@ func (c *ResearchCoordinator) debrief(result *domain.MissionResult) {
 	}
 	if result.ResearcherType == domain.ResearcherValidation {
 		c.director.RecordOutcome(director.PolicyExploit, false, len(c.state.Validated) > 0)
+		for _, cand := range c.state.Validated {
+			var dimType dimension.DimensionType
+			if strings.Contains(strings.ToLower(cand.Type), "race") || strings.Contains(strings.ToLower(cand.Type), "overdraw") {
+				dimType = dimension.DimTemporalConcurrency
+			} else if strings.Contains(strings.ToLower(cand.Type), "cache") || strings.Contains(strings.ToLower(cand.Type), "normalization") {
+				dimType = dimension.DimEncodingNormalization
+			} else if strings.Contains(strings.ToLower(cand.Type), "batch") || strings.Contains(strings.ToLower(cand.Type), "bleed") {
+				dimType = dimension.DimPipelineInterleaving
+			}
+
+			if dimType != "" {
+				dim := c.latentMiner.GetDimension(dimType)
+				if dim == nil {
+					dim = &dimension.Dimension{Type: dimType, Name: string(dimType)}
+				}
+				pred := c.cegar.Synthesize(dim, cand.Endpoint, nil, dim.Parameters)
+				concept, err := c.ontologyExpander.Expand(context.Background(), dim, pred, domain.SeverityCritical, len(result.Evidence))
+				if err == nil && concept != nil {
+					c.attackGraph.AddNode(attackgraph.NodeCapability, "Learned Security Concept: "+concept.Name, concept.ConceptID, 0.98)
+				}
+			}
+		}
 	}
 
 	// Record weaknesses & impact in attack graph
@@ -588,12 +666,18 @@ func (c *ResearchCoordinator) finalizeFindings() {
 						discoveryEvidence = append(discoveryEvidence, ev)
 					}
 				}
+				if len(discoveryEvidence) == 0 && len(m.Evidence) > 0 {
+					discoveryEvidence = append(discoveryEvidence, m.Evidence[0])
+				}
 				discoveryMissionID = m.MissionID
 			case domain.ResearcherValidation:
 				for _, ev := range m.Evidence {
 					if ev.IsAnomalous {
 						validationEvidence = append(validationEvidence, ev)
 					}
+				}
+				if len(validationEvidence) == 0 && len(m.Evidence) > 0 {
+					validationEvidence = append(validationEvidence, m.Evidence[0])
 				}
 				validationMissionID = m.MissionID
 			case domain.ResearcherImpact:

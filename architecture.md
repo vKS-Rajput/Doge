@@ -1,20 +1,22 @@
-# DOGE Architecture: Autonomous Security Research System
+# DOGE Architecture: Security Research Operating Environment
 
-**Version**: 2.0 (Post-LLM Autonomous Security Research Architecture)  
-**Status**: Complete Design — Ready for Implementation Review  
-**Date**: 2026-09-11
+**Version**: 3.0 (Autonomous Security Research Operating Environment)  
+**Status**: Active Architectural Specification  
+**Date**: 2026-09-12  
+**Master Blueprint**: `.doge/design/DOGE-OPERATING-ENVIRONMENT-SPEC.md`
 
 ---
 
 ## Executive Summary
 
-DOGE is an **autonomous security research system** that discovers vulnerabilities by treating vulnerability discovery as an **algorithmic scientific-discovery problem**. Unlike traditional scanners that search known vulnerability space, DOGE discovers the **structure of the unknown space** through:
+DOGE is an **autonomous, evidence-driven security research operating environment**. It is structured as a 4-tier system:
+1. **The Cockpit**: Windows Native Application (Wails desktop shell)
+2. **The Kernel**: DOGE Go Core Research Engine (World Model, SCM, MDL, Strategy Synthesizer, CEGAR, MAP-Elites, Cryptographic Proofs)
+3. **The Laboratory**: WSL2 Linux Substrate (Managed, versioned, and isolated offensive toolchain)
+4. **The Subject**: Authorized targets, source repositories, and networked services
 
-1. **MDL-driven anomaly detection** — finding observations that resist explanation under the current ontology
-2. **Representation expansion** — discovering new concepts (vulnerability classes, security properties, experiment families)
-3. **Causal experimentation** — structured hypothesis falsification via differential testing
-4. **Ontology growth** — promoting validated anomalies to reusable security concepts
-5. **Strategy learning** — discovering better research algorithms, not just better payloads
+DOGE treats vulnerability discovery as an **algorithmic scientific-discovery problem** governed by epistemic logic:
+> **Target → World Model → Uncertainty Frontier → Causal Experiment → Cryptographic Evidence → Verified Knowledge**
 
 **Key Architectural Principle**: The LLM is a **bounded, replaceable hypothesis/labeling source** — never the orchestrator, validator, or authority. The deterministic core owns authorization, scope, validation-truth, execution, and safety.
 
@@ -26,6 +28,8 @@ DOGE is an **autonomous security research system** that discovers vulnerabilitie
 
 | Module | Responsibility | Location |
 |--------|---------------|----------|
+| **Operating Runtime** | Seam managing WSL laboratory, process streaming, .doge workspace, and local IPC/SSE | `internal/runtime/` |
+| **Active Scanner** | Real-world reconnaissance, 13 vulnerability detectors, and cryptographic proof sealing | `internal/scanner/` |
 | **Research Coordinator** | Central orchestration: plan → dispatch → debrief → loop | `internal/coordinator/` |
 | **World Model** | Unified typed graph: principals, tenants, objects, endpoints, states, transitions, relationships, gaps | `internal/worldmodel/` |
 | **Research Gap Detector** | Discovers untested properties, missing isolation boundaries, unknown state transitions | `internal/coordinator/gap_analyzer.go` |

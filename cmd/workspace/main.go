@@ -78,6 +78,7 @@ requiring AI. AI reasoning is available but optional.`,
 		newResearchCmd(),
 		newWhyCmd(),
 		newScopeCmd(),
+		newAutoCmd(),
 	)
 
 	return root

@@ -1,177 +1,762 @@
-# Architecture: An AI-Augmented Terminal Workspace for Security Research
+# DOGE Architecture: Autonomous Security Research System
 
-**Document type:** Software architecture specification
-**Audience:** Engineers implementing the system; security leads evaluating it for adoption
-**Status:** Draft v1.0
-
----
-
-## 0. Reading Guide
-
-This document follows the research brief's own topic order, offset by one section to make room for this front matter (§1 covers brief-topic 1, §2 covers brief-topic 2, and so on). Brief-topic 16, "Command Design," is deliberately pulled out of the numbered flow and delivered as **Appendix A** — the CLI surface is referenced throughout the other sections (every module exposes itself through a command), so it reads better as a single consolidated reference than as one more standalone section competing with the modules it names. Everything else keeps its natural place:
-
-| §  | Content |
-|----|---|
-| 1  | Overall System Architecture |
-| 2  | Terminal UX Design |
-| 3  | Workspace & Project Layout |
-| 4  | Event-Driven Architecture |
-| 5  | File Watcher |
-| 6  | Parser System |
-| 7  | Knowledge Base (Knowledge Graph) |
-| 8  | AI Memory |
-| 9  | Preventing Hallucinations |
-| 10 | Databases |
-| 11 | AI Model Integration |
-| 12 | Prompt Engineering |
-| 13 | Timeline Engine |
-| 14 | Search Engine |
-| 15 | Plugin Architecture |
-| 16 | Security |
-| 17 | Performance |
-| 18 | Future Roadmap |
-
-Appendices A–G hold the CLI reference, schemas, risk register, testing strategy, milestones, and a consolidated technology-stack summary.
+**Version**: 2.0 (Post-LLM Autonomous Security Research Architecture)  
+**Status**: Complete Design — Ready for Implementation Review  
+**Date**: 2026-09-11
 
 ---
 
-## Executive Summary and Non-Goals
+## Executive Summary
 
-This document specifies the architecture for a terminal-native workspace that helps a human security researcher (bug bounty hunter or assessment consultant) organize, remember, and reason about the artifacts a real engagement produces — subdomain lists, HTTP probes, crawl output, Burp/HAR exports, JavaScript, screenshots, notes — as they accumulate over days or weeks.
+DOGE is an **autonomous security research system** that discovers vulnerabilities by treating vulnerability discovery as an **algorithmic scientific-discovery problem**. Unlike traditional scanners that search known vulnerability space, DOGE discovers the **structure of the unknown space** through:
 
-It is **not** an autonomous agent, and that constraint is load-bearing, not decorative. Four rules apply everywhere in this design and are treated as invariants rather than defaults that later versions might relax:
+1. **MDL-driven anomaly detection** — finding observations that resist explanation under the current ontology
+2. **Representation expansion** — discovering new concepts (vulnerability classes, security properties, experiment families)
+3. **Causal experimentation** — structured hypothesis falsification via differential testing
+4. **Ontology growth** — promoting validated anomalies to reusable security concepts
+5. **Strategy learning** — discovering better research algorithms, not just better payloads
 
-1. The AI never independently executes a security tool, runs a scan, sends a request to a target, or attempts exploitation. Every byte the AI reasons over was produced by a tool the researcher ran themselves and dropped into the workspace, or typed themselves as a note.
-2. The AI activates only on one of four triggers: a new file appears, an existing file changes, the researcher explicitly asks a question, or the researcher explicitly invokes an analysis command. It is otherwise idle — no background "helpfully" re-analyzing, no proactive suggestions pushed unprompted.
-3. The AI never fabricates a finding, invents a scan result it wasn't given, or asserts a vulnerability exists without evidence the researcher can inspect. Where the data doesn't support an answer, the correct output is "I do not have evidence," "I cannot determine this," or "more data is required" — not a plausible-sounding guess.
-4. Every AI-generated claim is traceable to the specific stored artifact that supports it. If a claim can't be traced, it doesn't ship.
-
-These four rules shape almost every architectural decision that follows: why the system is built around an event bus rather than an autonomous loop, why the Knowledge Base separates "observed" from "researcher-attested" data, why the AI Reasoning Engine is reachable from exactly two event types, and why an entire section (§9) is dedicated to the mechanics of grounding.
-
-**Non-goals:** exploitation, active scanning orchestration, automatic report submission to bounty platforms, multi-tenant SaaS delivery (the MVP is a single researcher on a single machine — see §18 for how a team tier might later be added without weakening these invariants), and general-purpose chat unrelated to the active engagement.
+**Key Architectural Principle**: The LLM is a **bounded, replaceable hypothesis/labeling source** — never the orchestrator, validator, or authority. The deterministic core owns authorization, scope, validation-truth, execution, and safety.
 
 ---
 
 ## 1. Overall System Architecture
 
-### 1.1 Module inventory
+### 1.1 Module Inventory
 
-| Module | Responsibility |
-|---|---|
-| **Workspace Manager** | Top-level lifecycle: `init`/`open` a workspace, load `config/workspace.toml`, coordinate startup of every other module |
-| **Project Manager** | CRUD over `projects/<slug>/`; archival; per-project settings that override workspace defaults |
-| **Knowledge Base (KB)** | The structured store of entities and relationships (§7); source of truth for "what do we know" |
-| **Memory Engine** | Derived, compressed representations of the KB for the AI — summaries and embeddings (§8) |
-| **File Watcher** | Cross-platform filesystem event source; debounces and routes to parsers (§5) |
-| **Timeline Engine** | Event-sourced history, snapshots, diffs (§13) |
-| **AI Reasoning Engine** | The only module allowed to call an LLM; reachable solely from `user.ask`/`user.analyze` (§4, §9) |
-| **Search Engine** | Hybrid keyword+semantic retrieval, reused by the TUI filter and the AI's Context Builder (§14) |
-| **Parser Engine** | Format- and tool-specific extraction into KB entities (§6) |
-| **Plugin System** | Independently pluggable source integrations (§15) |
-| **Terminal UI** | The lazygit/k9s/btop-inspired multi-pane presentation layer (§2) |
-| **Command Router** | Dispatches CLI verbs (`workspace ask`, `workspace import`, …) to the owning module (Appendix A) |
-| **Configuration Manager** | Loads/validates `workspace.toml`, per-project overrides, plugin allowlist |
-| **Logging System** | Structured, redacted operational logs (§16) |
-| **Database Layer** | SQLite (+ sqlite-vec) access, migrations, WAL management (§10) |
-| **Caching Layer** | Prompt/response cache and embedding cache (§17) |
-| **Model Manager** | Local/remote model lifecycle: pulls, verifies, warms, tracks context-window limits (§11) |
-| **Prompt Manager** | Loads and versions the templates in `ai/prompts/` (§12) |
-| **Event Bus** | The async backbone connecting Watcher → Parser → KB → Timeline → Memory → UI (§4) |
-| **Session Manager** | Tracks `ask`/`analyze` invocations as first-class, browsable entities (§7, §13) |
-| **Context Builder** | Assembles a token-budgeted, cited context for each AI invocation (§8, §11, §12) |
-| **Output Formatter** | Renders AI output for the TUI (with inline evidence links) vs. for `report` generation (Markdown/PDF) |
+| Module | Responsibility | Location |
+|--------|---------------|----------|
+| **Research Coordinator** | Central orchestration: plan → dispatch → debrief → loop | `internal/coordinator/` |
+| **World Model** | Unified typed graph: principals, tenants, objects, endpoints, states, transitions, relationships, gaps | `internal/worldmodel/` |
+| **Research Gap Detector** | Discovers untested properties, missing isolation boundaries, unknown state transitions | `internal/coordinator/gap_analyzer.go` |
+| **Property System** | Testable security properties (not vulnerability classes) with epistemic states | `internal/property/` |
+| **Invariant Miner** | Dynamic induction of behavioral invariants from execution traces | `internal/invariant/` |
+| **Metamorphic Prober** | 3-way differential probes (forward/reverse/control) for context isolation | `internal/metamorphic/` |
+| **Dimension Miner** | Latent behavioral basis discovery (temporal, encoding, serialization, pipeline, idempotency) | `internal/dimension/` |
+| **Causal Engine** | Structural Causal Model + interventional surprise detection | `internal/causal/` |
+| **CEGAR Synthesizer** | Counterexample-guided abstraction refinement → separating predicates | `internal/synthesis/` |
+| **Ontology Expander** | Promotes validated anomalies to formal security concepts | `internal/ontology/` |
+| **Researchers** | Short-lived focused workers: Recon, Authorization, Workflow, Anomaly, Validation, Impact | `internal/researcher/` |
+| **Independent Verifier** | Deterministic claim verification against evidence (no LLM) | `internal/verification/` |
+| **Model Router** | Multi-provider LLM routing with deterministic fallback | `internal/reasoning/`, `pkg/ai/` |
+| **Learning System** | Layered memory with failure learning, strategy credit assignment | `internal/learning/` |
+| **Session & Budget** | Replay, checkpointing, multi-dimensional budget governance | `internal/session/` |
+| **Benchmark Suite** | Adversarial synthetic targets with planted vulnerabilities | `internal/benchmark/` |
 
-### 1.2 Why an event-bus monolith, not microservices
+### 1.2 Communication Paths
 
-Three architectures were considered: (a) a single static binary organized around an in-process event bus; (b) a client/server split (a daemon plus a thin TUI client); (c) a microservice mesh (separate processes per module, communicating over gRPC/HTTP).
-
-(c) is rejected outright: this tool runs on disposable VMs, boxes with no network egress, and client-provided machines (the same constraint that drove the Go/Bubble Tea choice in §2). A mesh of processes multiplies the deployment surface exactly where the deployment surface must be smallest, and it does nothing for a single-user tool that a mesh is designed to buy — independent scaling of load that doesn't exist here.
-
-(b) is a legitimate variant, and this design keeps its shape available: the Event Bus and Database Layer are the seam. Running the workspace as `workspace daemon` with the TUI as a thin client that reconnects across SSH sessions is possible without changing any module's internal contract — it's how the future team-shared tier (§18) is reached. But it is not the default, because a daemon is one more thing to remember to start/stop/secure on a box the researcher doesn't fully control.
-
-(a) is the default: one process, one binary, an in-process event bus (Go channels, per §4's pipeline), with every module above addressable as a Go interface. This gives the daemon-mode upgrade path for free later while keeping the common case — a researcher opens a terminal and runs `workspace open` — completely dependency-free.
-
-### 1.3 Two communication paths, not one
-
-A single event bus is not the only channel in this system, and conflating "the write path" with "the read path" is a common design mistake worth naming explicitly:
-
-- **Write path (async, event-driven):** File Watcher → Parser Engine → Knowledge Base (diff-and-write) → Timeline Engine + Memory Engine (both subscribe to KB writes) → Terminal UI's "what changed" strip. This is the pipeline diagrammed in §4. Nothing here blocks the researcher.
-- **Read path (synchronous, direct calls):** the Terminal UI's panels, the Search Engine, and the AI Reasoning Engine's Context Builder all query the Knowledge Base and Memory Engine directly through a read API — no event required, no queue, no async round-trip. Browsing already-ingested data must feel instant; routing it through the event bus would add latency for no benefit.
-
-The only place these paths intersect is cache invalidation: an `entity.changed` event on the write side must invalidate any cached read (prompt-response cache, embedding cache) that depended on the old value — detailed in §17.
-
-### 1.4 Component diagram
-
-```mermaid
-flowchart TB
-    subgraph Presentation
-        TUI[Terminal UI]
-        CR[Command Router]
-    end
-    subgraph Orchestration
-        EB[Event Bus]
-        CB[Context Builder]
-        SM[Session Manager]
-        OF[Output Formatter]
-    end
-    subgraph Domain
-        FW[File Watcher]
-        PE[Parser Engine]
-        PS[Plugin System]
-        KB[Knowledge Base]
-        TE[Timeline Engine]
-        ME[Memory Engine]
-        SE[Search Engine]
-        ARE[AI Reasoning Engine]
-    end
-    subgraph Infrastructure
-        DB[Database Layer\nSQLite + sqlite-vec]
-        CL[Caching Layer]
-        MM[Model Manager]
-        PM[Prompt Manager]
-        CFG[Configuration Manager]
-        LOG[Logging System]
-    end
-
-    CR --> TUI
-    CR --> ARE
-    CR --> KB
-    CR --> TE
-    CR --> SE
-
-    FW -->|file.* events| EB
-    EB --> PE
-    PS -.plugins.-> PE
-    PE -->|entity.* events| EB
-    EB --> KB
-    EB --> TE
-    KB --> ME
-    KB -->|read path| TUI
-    KB -->|read path| SE
-    ME -->|read path| SE
-    SE -->|read path| CB
-    TE -->|read path| TUI
-
-    CR -->|user.ask / user.analyze only| ARE
-    ARE --> CB
-    CB --> KB
-    CB --> ME
-    CB --> PM
-    ARE --> MM
-    ARE --> OF
-    OF --> TUI
-    ARE --> SM
-    SM --> TE
-
-    KB --> DB
-    ME --> DB
-    CL --> ARE
-    CFG --> CR
-    LOG --> EB
-    LOG --> ARE
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        RESEARCH COORDINATOR                         │
+│  (Deterministic Core — Owns Auth, Scope, Validation, Execution)    │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        ▼                    ▼                    ▼
+   ┌─────────┐         ┌───────────┐        ┌──────────┐
+   │ World   │         │  Property │        │  Gap     │
+   │ Model   │◄───────►│  Catalog  │◄──────►│ Detector │
+   │ (Graph) │         │           │        │          │
+   └────┬────┘         └─────┬─────┘        └────┬─────┘
+        │                    │                    │
+        ▼                    ▼                    ▼
+   ┌─────────────────────────────────────────────────────┐
+   │              RESEARCHER DISPATCH                     │
+   │  Recon │ Authorization │ Workflow │ Anomaly │ Impact │
+   └──────────────────────┬──────────────────────────────┘
+                          │
+                          ▼
+   ┌─────────────────────────────────────────────────────┐
+   │              EXPERIMENT EXECUTION                    │
+   │  HTTP Client → Evidence Capture → Mission Result     │
+   └────────────────────────────┬────────────────────────┘
+                          │
+                          ▼
+   ┌─────────────────────────────────────────────────────┐
+   │              DEBRIEF & WORLD MODEL UPDATE            │
+   │  Observations → Hypotheses → Candidates → Validated  │
+   │  → Impact → Proven Findings → Concept Learning       │
+   └─────────────────────────────────────────────────────┘
 ```
 
-### 1.5 Layering rationale (ports and adapters)
+**Two paths, not one**:
+- **Write path (async, event-driven)**: File Watcher → Parser → KB → Timeline → Memory → UI
+- **Read path (synchronous, direct)**: TUI, Search, AI Context Builder query KB directly
 
-Each Domain module is defined by an interface (a "port"); the Infrastructure modules are swappable "adapters" behind those ports. This is why §7's Knowledge Base can start on SQLite and later grow an optional graph-database adapter without touching the Parser Engine, and why §11's Model Manager can point at Ollama today and vLLM in a team deployment tomorrow without the Prompt Manager or Context Builder knowing the difference. The pattern is used deliberately, not decoratively — it is the mechanism by which "single binary today, daemon or team server tomorrow" stays true without a rewrite.
+---
 
+## 2. The Research Loop (Mathematical Specification)
+
+### 2.1 State Definitions
+
+```
+S_t          : Hidden target state (unobserved)
+O_t          : Observation = G(S_t, A_t, N_t) — what execution returns
+A_t ∈ A_auth : Authorized intervention/experiment
+W_t          : Unified typed world-model graph (V_t, E_t, τ)
+B_t          : Belief = version space of hypotheses not yet falsified + confidence
+F_t          : Frontier = {v ∈ W_t : confidence(v) < c_min ∨ Anomaly(v) > a_min}
+H_t          : Hypothesis = candidate relation in Concept/Causal Graph, tagged with source + validation status
+E_t          : Experiment = (I, C, A, O) — grammar-composed, Pareto-selected
+J(π)         : Objective = E_π[ΔL(K) + λ₁I(S_t;O_t|A_t) + λ₂ImpactPotential]
+ρ            : Ontology-expansion operator ρ:(O_{1:t}, K_t) → K_{t+1}, K_{t+1} ⊇ K_t
+D            : Discovery operator — promotes validated MDL-anomalous hypothesis to new Concept Graph node
+N            : Novelty operator — structural-similarity check against Concept/Strategy Graph
+Stop         : Budget exhausted ∨ frontier confidence > threshold ∨ marginal J/cost < floor for k steps
+```
+
+### 2.2 The Autonomous Loop (Refined)
+
+```
+while budget_remaining and not Stop(W, budget):
+
+    O = observe_authorized(select_probe(W))          # deterministic, scoped
+    W.update(O)                                       # unified graph update
+
+    anomalies = mdl_anomaly_scan(W)                    # Part 6
+    for a in anomalies:
+        relation = abstract(a, W)                       # structural abstraction
+        match = structural_match(relation, W.concepts)  # graph similarity
+        if match is None:
+            concept = provisional_concept(relation)      # new node, unnamed
+            W.concepts.add(concept)
+            H = spawn_hypothesis(concept)
+        else:
+            H = refine_hypothesis(match, relation)       # version-space narrowing
+
+        candidates = synthesize_experiments(H, W)         # grammar composition
+        frontier_set = pareto_front(candidates,           # multi-objective
+                                     axes=[info_gain, novelty, sec_relevance],
+                                     costs=[cost, risk])
+        E = select_from_frontier(frontier_set, rule=DETERMINISTIC_POLICY)
+        E = typecheck_against_authorization(E)            # structurally rejects unsafe E
+        if E is None:
+            continue
+
+        result = execute_authorized(E)
+        W.update(result)
+
+        if falsifies(H, result):
+            H = narrow_or_enlarge(H, result)              # CEGAR-style
+        elif supports(H, result) and independent_validate(H, W):
+            impact = safely_demonstrate(H)                 # bounded, authorized only
+            finding = produce_proven_finding(H, impact)
+            W.concepts.name(finding.concept, via=llm_naming_only)  # LLM: labeling ONLY
+            learn_strategy_credit(current_strategy, finding)
+
+    W.decay_stale_confidence()   # keeps frontier honest over long runs
+```
+
+**Key Refinements vs. Prior Drafts**:
+- Anomaly detection → concept discovery **before** hypothesis generation (catches novel-ontology cases)
+- Pareto-based experiment selection (not single greedy `select_experiment`)
+- LLM touchpoint isolated to exactly **one line** (`llm_naming_only`) with zero effect on correctness
+
+---
+
+## 3. World Model: The Unified Typed Graph
+
+### 3.1 Why a Single Graph?
+
+**Anti-pattern to avoid**: Separate Attack Graph, Causal Graph, Knowledge Graph, Concept Graph, Strategy Graph, Evidence DB → synchronization nightmares.
+
+**DOGE's approach**: One typed attributed graph `W_t = (V_t, E_t, τ)` where node/edge *types* correspond to roles (state, capability, invariant, hypothesis, experiment, evidence, concept, strategy). Different "views" are **queries/projections** over this one structure.
+
+```
+                    WORLD MODEL (W_t)
+                         │
+         ┌───────────────┼───────────────┐
+         ▼               ▼               ▼
+    Attack View     Causal View      Concept View
+   (capability      (intervention     (induced
+    composition)     edges, SCM)        concepts)
+         │               │               │
+         └───────────────┼───────────────┘
+                         ▼
+                  Strategy View
+           (learned DSL strategies)
+```
+
+**Every edge carries provenance**: source experiment, timestamp, confidence, target, evidence, causal provenance → auditable, diffable, cross-target transferable.
+
+### 3.2 Core Entity Types
+
+| Entity | Type ID | Key Fields |
+|--------|---------|------------|
+| **Principal** | `Principal` | id, credentials, user_id, tenant_id, role |
+| **Tenant** | `Tenant` | id, name, isolation_level |
+| **Account** | `Account` | id, principal_id, tenant_id, type |
+| **ObjectResource** | `ObjectResource` | id, type, identifier, owner_principal_id, tenant_id, endpoint_id |
+| **EndpointModel** | `EndpointModel` | id, host, path, method, url, requires_auth, required_roles, parameters[] |
+| **ParameterModel** | `ParameterModel` | id, name, location, is_url_parameter, endpoint_id |
+| **StateNode** | `StateNode` | id, name, type (auth, workflow, session), properties |
+| **StateTransition** | `StateTransition` | id, from_state, to_state, action, preconditions, postconditions |
+| **ResearchGap** | `ResearchGap` | id, type (UNKNOWN_AUTH_BOUNDARY, UNKNOWN_TENANT_ISOLATION, etc.), uncertainty, status |
+
+### 3.3 Relationship Types (`domain.RelationshipType`)
+
+- `RelOwnsObject` — Principal → Object
+- `RelPartOf` — Tenant → Object
+- `RelAcceptsParam` — Endpoint → Parameter
+- `RelTransitionsTo` — StateNode → StateNode
+- `RelLeadsTo` — Endpoint → Capability/Weakness
+- `RelHasEvidence` — Hypothesis → Evidence
+- `RelViolates` — Experiment → SecurityProperty
+
+### 3.4 Gap Detection
+
+`ResearchGapDetector` analyzes the world model + property catalog to produce gaps:
+
+```go
+type Gap struct {
+    Property   *property.SecurityProperty
+    Priority   float64  // information-gain score
+    Reason     string
+    Target     string   // endpoint/asset the property applies to
+    CreatedAt  time.Time
+}
+```
+
+Gaps drive mission planning: untested properties → high information gain → prioritized missions.
+
+---
+
+## 4. Property-Based Security Reasoning
+
+### 4.1 Properties vs. Vulnerability Classes
+
+**Traditional**: Scan for SQLi, XSS, IDOR, SSRF — fixed taxonomy.
+
+**DOGE**: Properties are testable assertions about what **should be true**:
+- "Only authorized principals can access resource X" (Authorization)
+- "Tenant A cannot access Tenant B's resources" (Isolation)
+- "Workflow transitions cannot be skipped" (Workflow Integrity)
+- "Untrusted input cannot influence privileged operations" (Input Validation)
+
+When a property is **violated**, that violation **IS the vulnerability** — regardless of whether it matches a known CWE.
+
+### 4.2 Epistemic States
+
+```
+StateUnknown ──(test)──► StateSupported ──(more evidence)──► StateValidated
+     │                        │
+     │                        └──(contradiction)──► StateContradicted ──► StateViolated
+     │
+     └──(assume)──► StateAssumed ──(test)──► StateSupported/Contradicted
+     │
+     └──(identified untested)──► StateUntested
+```
+
+### 4.3 Information Gain Scoring
+
+```
+StateUnknown:           1.0 * Priority           // Maximum — we know nothing
+StateAssumed:           0.9 * Priority           // High — assumption needs testing
+StateUntested:          0.85 * Priority          // High — known untested
+StatePartiallyTested:   0.5 * (1-Confidence) * P // Proportional to remaining uncertainty
+StateSupported:         0.3 * (1-Confidence) * P // Low — could be wrong
+StateContradicted:      0.7 * Priority           // High — need to confirm/reject
+StateViolated:          0.1 * (1-Confidence) * P // Very low — mostly known
+StateValidated:         0.0                      // Zero — independently confirmed
+```
+
+---
+
+## 5. Researchers: Short-Lived Focused Workers
+
+### 5.1 Researcher Interface
+
+```go
+type Researcher interface {
+    Type() domain.ResearcherType
+    Execute(ctx context.Context, brief *domain.MissionBrief) (*domain.MissionResult, error)
+}
+```
+
+Each researcher receives a `MissionBrief`, executes bounded experiments, returns structured `MissionResult`. Researchers are **retired after each mission** to prevent bias accumulation.
+
+### 5.2 Researcher Types
+
+| Type | Purpose | Key Technique |
+|------|---------|---------------|
+| **Recon** | Map attack surface: endpoints, auth, tenants, objects | Parsing + entity extraction |
+| **Authorization** | Cross-principal differential testing (BOLA/IDOR) | `SAME_OPERATION + DIFFERENT_PRINCIPAL = DIFFERENTIAL_OBSERVATION` |
+| **Workflow** | State machine mapping + transition integrity testing | StateNode/StateTransition registration |
+| **Anomaly** | Unknown-space metamorphic probing | Invariant induction + 3-way differential probes |
+| **Validation** | Independent reproduction with fresh context | Deterministic confirmation/refutation |
+| **Impact** | Bounded impact demonstration within authorization | Evidence collection for proven finding |
+
+### 5.3 Authorization Researcher (Differential Engine)
+
+**Core insight**: `SAME_OPERATION + DIFFERENT_PRINCIPAL = DIFFERENTIAL_OBSERVATION`
+
+```
+Principal A (Tenant 1) → GET /api/v1/items/{B's_item} → 200 OK (VULNERABLE)
+Principal A (Tenant 1) → GET /api/v1/users/{B's_id}   → 403 FORBIDDEN (CORRECT)
+                                                      ↑
+                                          Differential proof:
+                                          Items endpoint missing authz middleware
+```
+
+### 5.4 Anomaly Researcher (Metamorphic + Invariant Induction)
+
+**Three anomaly families discovered**:
+1. **Batch Pipeline Context Bleed** — Authorization state persists across execution frames
+2. **Latent Race Window** — Asynchronous balance check allows overdraw (temporal_concurrency)
+3. **Cache Normalization Collision** — Proxy path cleaning exposes private reports (encoding_normalization)
+
+**3-way metamorphic probe**:
+```
+Forward:  [Privileged Op, Unprivileged Op] → Unprivileged succeeds (context bleed)
+Reverse:  [Unprivileged Op, Privileged Op] → Unprivileged fails (control)
+Control:  Unprivileged Op alone            → Unprivileged fails (baseline)
+```
+
+---
+
+## 6. Causal Reasoning & Experiment Synthesis
+
+### 6.1 Structural Causal Model (SCM)
+
+Variables = latent dimensions + observed endpoints + security properties.
+Edges = causal relationships induced from differential experiments.
+
+```
+Intervention(I) on Variable X
+    │
+    ├─► Outcome Y changes? ── YES ──► Causal edge X → Y
+    │
+    └─► Outcome Y unchanged ── NO ──► No causal edge
+```
+
+### 6.2 CEGAR Synthesis
+
+Counterexample-Guided Abstraction Refinement synthesizes **separating predicates** that distinguish vulnerable from safe executions.
+
+```go
+// Example: Temporal Concurrency (Race Condition)
+Formula: (Endpoint == /wallet/transfer) && (Delta_t < 40ms) && (Concurrent_Bursts > 1)
+
+// Example: Encoding Normalization (Cache Collision)
+Formula: (CacheKey(Req) == '/public') && (BackendPath(Req) CONTAINS '..%2F')
+
+// Example: Pipeline Interleaving (Batch Context Bleed)
+Formula: (Batch_SubOps[0].IsPrivileged == true) && (Batch_SubOps[1].InheritsContext == true)
+```
+
+These predicates become **reproduction templates** for future targets — cross-target transfer.
+
+---
+
+## 7. Ontology Expansion: Discovering New Concepts
+
+### 7.1 The Representation-Expansion Operator ρ
+
+```
+ρ: (O_{1:t}, K_t) → K_{t+1},  where K_{t+1} ⊇ K_t
+
+K_t = {vuln classes, security properties, transformations, experiment families}
+```
+
+### 7.2 Pipeline: Anomaly → New Concept
+
+```
+1. DETECT    — MDL anomaly score fires (observation resists current ontology)
+2. ABSTRACT  — Represent as typed relation over world-model graph:
+               (actor, resource, action, expected_denial, observed_allow, invariant_violated)
+3. CLUSTER   — Graph edit distance / relational similarity vs. Concept Graph
+4. NAME      — LLM proposes human-readable label (ONLY labeling, zero correctness impact)
+5. GENERALIZE — Spawn experiment-family template parameterized over new relation
+```
+
+**Why structural not textual?** `Graph similarity` catches "same shape, different labels" — formal concept analysis / ILP-style, not text classification.
+
+### 7.3 SecurityConcept Structure
+
+```go
+type SecurityConcept struct {
+    ConceptID            string       // CONCEPT_BATCH_CONTEXT_BLEED_A1B2C3D4
+    Name                 string       // "Batch Pipeline Context Bleed"
+    Dimension            string       // "pipeline_interleaving"
+    SeparatingPredicate  string       // CEGAR formula
+    ViolationType        string       // DimensionType
+    Severity             domain.Severity
+    ReproductionTemplate string       // Parameterized steps
+    Description          string
+    LearnedAt            time.Time
+    EmpiricalEvidenceCount int
+}
+```
+
+---
+
+## 8. Independent Verification (Deterministic)
+
+### 8.1 Verification Layers (No LLM)
+
+1. **Evidence ID Validation** — cited IDs exist?
+2. **Claim Category Validation** — appropriate category?
+3. **Entity/Relationship Matching** — evidence contains referenced entities?
+4. **Structured Field Comparison** — evidence attributes support claim properties?
+5. **Contradiction Detection** — evidence contradicts claim?
+6. **Vulnerability Claim Gate** — vuln claims require explicit vuln evidence, not mere existence
+7. **Provenance Consistency** — claim references entity X, evidence references X (not Y sharing keywords)
+
+### 8.2 Key Rule: Vulnerability Claims Need Vulnerability Evidence
+
+```go
+// Claim: "admin.example.com is vulnerable to IDOR"
+// Evidence: "admin.example.com exists" → UNSUPPORTED
+// Required: Evidence showing cross-tenant access GRANTED
+```
+
+The LLM can **hypothesize** vulnerabilities; the Verifier **confirms** them.
+
+---
+
+## 9. LLM Integration: Bounded, Replaceable, Authority-Free
+
+### 9.1 What LLMs Do (Narrow Interface)
+
+| Task | Why LLM | Correctness Impact |
+|------|---------|-------------------|
+| **Document grounding** | Extract invariants from unstructured prose (API docs, ToS, comments) | Low — output goes to hypothesis generation, validated downstream |
+| **Concept naming** | Human-readable label for induced concept | **Zero** — underlying relation already correct |
+| **Strategy explanation** | Human-readable rationale for reviewers | Zero — strategy evaluated by discovery rate, not explanation |
+| **Cross-domain bridging** | Recognize structural pattern match across disjoint domains | Low — mapped relation verified by experiment |
+
+### 9.2 What LLMs NEVER Do
+
+| Forbidden | Enforcement |
+|-----------|-------------|
+| Authorization decisions | Type-level in experiment DSL — unsafe experiments cannot be constructed |
+| Validation truth | Deterministic Verifier owns `StatusSupported`/`StatusUnsupported` |
+| Execution | Only deterministic HTTPClient runs requests |
+| Scope/budget/safety | Coordinator enforces via hardcoded policy |
+
+### 9.3 Model Routing
+
+```
+┌──────────────────────────────────────────┐
+│         MODEL ROUTER (ai.ModelRouter)    │
+│  Common interface: Dispatch(ReasoningRequest) │
+└────────────────┬─────────────────────────┘
+                 │
+     ┌───────────┼───────────┐
+     ▼           ▼           ▼
+ Local Model  Frontier API  Deterministic
+ (Ollama)     (OpenRouter)  Fallback (always)
+```
+
+- All providers scored on rolling basis by **proposal survival rate**
+- If all LLM providers vanish → deterministic core unaffected (owns everything downstream)
+
+---
+
+## 10. Learning System: Strategy Discovery
+
+### 10.1 Layered Memory Architecture
+
+| Layer | Scope | Decay | Purpose |
+|-------|-------|-------|---------|
+| **Short-term** | Current session | None | Active hypotheses, recent evidence |
+| **Session** | Current investigation | TTL | Patterns within engagement |
+| **Long-term** | Cross-target | Slow decay | Transferable concepts, strategies |
+| **Tool** | Per-tool | Medium | Tool-specific effectiveness |
+| **Hypothesis** | Per-hypothesis-type | Fast | Hypothesis-class win rates |
+| **Target** | Per-target | Very slow | Target-specific baselines |
+
+### 10.2 Strategy Representation
+
+Strategy = small program in constrained DSL:
+```
+{observe, hypothesize-template, experiment-template, stopping-rule}
+```
+
+Evaluated by running against held-out benchmarks → scored by **discovery rate per unit cost**.
+
+**Program synthesis over strategies** — search over bounded DSL, guided by evaluation.
+
+### 10.3 Failure-Driven Update (CEGAR-style)
+
+Every failed experiment = counterexample to current hypothesis:
+- (a) Narrower hypothesis consistent with all evidence, OR
+- (b) Flag: hypothesis class needs enlarging → routes back to ontology expansion
+
+**Monotonic non-regression**: System never re-tests what it has falsified (falsification stored as constraint).
+
+### 10.4 Meta-Learning (Phase 4+)
+
+```
+Strategy 1 → fails
+Strategy 2 → partial
+Strategy 3 → finds anomaly
+    │
+    └─► Combine successful components → New Strategy
+        │
+        ├─► Benchmark
+        │
+        └─► Retain if superior
+```
+
+DOGE learns **better research algorithms**, not just better payloads.
+
+---
+
+## 11. Cross-Target Transfer
+
+### 11.1 What Transfers
+
+| Transfers | Does NOT Transfer |
+|-----------|-------------------|
+| Abstract causal mechanisms | Raw endpoint signatures |
+| Induced SecurityConcepts | Target-specific credentials |
+| Learned DSL strategies | Target-specific object IDs |
+| Dimension parameters (window_ms, encodings) | Target-specific workflow states |
+
+### 11.2 Structural Isomorphism Recognition
+
+Target A discovers:
+```
+Actor state transition → authorization evaluated using stale state → resource accessible
+```
+
+Target B (different API, framework, language, DB):
+```
+DOGE recognizes: G_A ≅ G_B at abstract relational level
+```
+
+**Mechanism**: Compare/merge typed subgraphs from World Model — not conversation transcripts.
+
+### 11.3 Transfer Protocol
+
+1. After finding: extract minimal validated structural relation + DSL strategy
+2. Store with confidence decay + provenance
+3. New target: seed frontier-selection with strategies ranked by past success
+4. **Require independent re-validation** on new target before reporting (no negative transfer)
+
+---
+
+## 12. Attack-Chain Discovery: AND/OR Hypergraph
+
+### 12.1 Capability Graph → AND/OR Hypergraph
+
+- **OR-nodes**: Alternative ways to reach a capability
+- **AND-nodes**: Capabilities that must jointly hold
+- **Edges**: Discovered capabilities with typed pre/post-conditions
+
+### 12.2 MCTS Search with Novelty/Impact Bias
+
+```
+Capability A (Auth bypass)
+    +
+Capability B (Object enumeration)
+    +
+Capability C (Privilege escalation)
+    ↓
+New reachable capability (Full account takeover)
+```
+
+Emerges **without hardcoded chain templates** — each edge individually discovered by unrelated experiments, composed by hypergraph search.
+
+**Requirement**: Capabilities represented with rich typed pre/post-conditions (world-model design, not search algorithm).
+
+---
+
+## 13. Safety & Governance (Deterministic Invariants)
+
+### 13.1 Four Hard Invariants (Never Relaxed)
+
+1. **AI never independently executes** security tools, sends requests, attempts exploitation
+2. **AI activates only on triggers**: new file, file change, explicit question, explicit analyze command
+3. **AI never fabricates findings** — "I do not have evidence" is correct output when unsupported
+4. **Every AI claim traceable** to specific stored artifact — untraceable claims don't ship
+
+### 13.2 Authorization Enforcement
+
+```go
+// Experiment DSL — unsafe experiments CANNOT BE CONSTRUCTED (type-level)
+type Experiment struct {
+    Action   AuthorizedAction  // Only pre-approved actions type-check
+    Target   InScopeTarget     // Scope enforced at construction
+    Budget   BudgetConstraints // Time/request/concurrency/token budgets
+}
+```
+
+### 13.3 Human Approval Gates
+
+```
+AI Hypothesis → Human Approves → Validation Runs
+Candidate Finding → Human Confirms → Confirmed Finding
+```
+
+Learning system changes **ranking/context only** — NEVER scope, authorization, safety constraints.
+
+---
+
+## 14. Benchmarking & Falsification
+
+### 14.1 Critical Benchmarks (Stress-Test the Core Bet)
+
+| Benchmark | Tests |
+|-----------|-------|
+| **C: Unmodeled Vulnerability Class** | MDL anomaly → new concept pipeline |
+| **D: Adversarial Target Behavior** | Rate limits, canaries, honeypots — causal model vs transcript |
+| **J: Genuinely Novel Mechanism** | Out-of-ontology discovery rate |
+
+**Falsification criterion**: If algorithm-only DOGE performs no better than random fuzzing on C/D/J, the MDL-anomaly-to-concept mechanism has failed.
+
+### 14.2 Ablation Priority (Predicted Impact)
+
+1. **MDL anomaly detection** — largest drop in novel-discovery
+2. **Unified world-model graph** — flat log replacement causes sync bugs
+3. **Pareto experiment selection** — greedy loses diversity
+4. **LLM naming layer** — almost no drop (only labeling)
+
+### 14.3 Adversarial Synthetic Suite
+
+`internal/benchmark/` contains planted-vulnerability targets:
+- BOLA (cross-tenant item access)
+- Tenant isolation bypass
+- Multi-step workflow skip
+- SSRF via server-side primitives
+- Privilege escalation chains
+
+With **distraction noise** and strict metrics:
+- Discovery Rate, False-Positive Rate, Time-to-Validation, Info-Gain/Action
+
+---
+
+## 15. Technology Stack
+
+| Layer | Technology | Rationale |
+|-------|------------|-----------|
+| **Core Language** | Go 1.23+ | Single binary, no runtime, cross-platform, strong concurrency |
+| **Database** | SQLite + sqlite-vec | Embedded, zero-config, vector search for embeddings |
+| **TUI** | Bubble Tea + Lipgloss | Terminal-native, lazygit/k9s UX |
+| **Event Bus** | Go channels (in-process) | No daemon needed, daemon-mode upgrade path available |
+| **LLM** | ModelRouter → Ollama/OpenRouter/Deterministic | Swappable, scored by proposal quality |
+| **Parsers** | 25+ tool-specific (nmap, httpx, nuclei, ffuf, katana, ...) | Auto-capture from researcher's workflow |
+| **Testing** | Go test + race detector + integration | 100% offline deterministic tests |
+
+---
+
+## 16. Implementation Status & Roadmap
+
+### 16.1 Completed (Phases 1-3)
+
+- ✅ Research Coordinator with full mission loop
+- ✅ World Model with unified typed graph
+- ✅ Property system with epistemic states
+- ✅ Authorization differential engine
+- ✅ Anomaly researcher (metamorphic + invariant induction)
+- ✅ Dimension miner (5 latent dimensions)
+- ✅ Causal SCM + CEGAR synthesis
+- ✅ Ontology expander with concept learning
+- ✅ Independent deterministic verifier
+- ✅ Layered learning with failure learning
+- ✅ Session persistence + replay + budgets
+- ✅ Adversarial benchmark suite (7 scenarios)
+
+### 16.2 In Progress / Next (Phase 4+)
+
+- [ ] **Hypothesis Engine 2.0**: Competing hypothesis trees + discriminating experiments
+- [ ] **10-tier epistemic hierarchy**: OBSERVATION → FACT → INFERENCE → HYPOTHESIS → PLAUSIBLE → SUPPORTED → CONTRADICTED → REJECTED → CONFIRMED → VALIDATED_FINDING
+- [ ] **Strategy DSL + Program Synthesis**: Automated strategy discovery/evaluation
+- [ ] **Cross-target structural isomorphism**: Graph matching for causal transfer
+- [ ] **Meta-learning loop**: Strategy composition from components
+
+### 16.3 Ultimate Vision (Phase 5+)
+
+> **Can DOGE automatically discover, evaluate, and transfer entirely new security-research strategies across previously unseen targets, while its deterministic core remains capable of operating with zero LLM availability?**
+
+This connects: **Ontology Expansion → Cross-Target Transfer → Strategy Discovery → Meta-Learning**
+
+---
+
+## 17. Design Decisions Summary
+
+| Decision | Rationale |
+|----------|-----------|
+| **Single unified world-model graph** | Avoids multi-store sync bugs; views = queries |
+| **Properties not vulnerability classes** | Generalizes beyond fixed taxonomy; violation = vulnerability |
+| **MDL anomaly as discovery signal** | Finds "resists explanation" not just "crashes/changes status" |
+| **Pareto experiment selection** | Novelty/info-gain/security-relevance not commensurable in single ratio |
+| **LLM only for naming/grounding** | Zero correctness impact; graceful degradation if LLM absent |
+| **Researchers short-lived + retired** | Prevents bias accumulation; each mission fresh |
+| **Deterministic verification** | LLM hallucinations caught at gate; never become findings |
+| **Type-level safety in experiment DSL** | Unsafe experiments structurally unrepresentable |
+| **CEGAR for predicate synthesis** | Minimal separating formulas; auditable, composable |
+| **Strategy as DSL program** | Searchable, evaluatable, transferable, composable |
+
+---
+
+## 18. File Organization Reference
+
+```
+cmd/workspace/           CLI commands (work, monitor, notebook, investigate, ...)
+internal/
+├── coordinator/         ResearchCoordinator + GapAnalyzer
+├── worldmodel/          Unified typed graph + gap detector
+├── property/            Security properties + epistemic states + catalog
+├── invariant/           Dynamic invariant induction
+├── metamorphic/         3-way differential probing
+├── dimension/           Latent behavioral basis (5 dimensions)
+├── causal/              Structural Causal Model + interventions
+├── synthesis/           CEGAR separating predicate synthesis
+├── ontology/            Dynamic concept expansion + naming
+├── researcher/          6 specialized researchers
+├── verification/        Deterministic claim verifier
+├── reasoning/           LLM integration (bounded, replaceable)
+├── learning/            Layered memory + strategy credit
+├── session/             Replay, checkpoint, budgets
+├── benchmark/           Adversarial synthetic targets
+├── attackgraph/         AND/OR hypergraph + MCTS
+├── parser/              25+ tool parsers
+├── entity/              Knowledge graph materialization
+├── correlation/         Entity relationship detection
+├── coverage/            Evidence-derived coverage
+├── opportunity/         Research opportunity ranking
+├── insight/             Pattern detection
+├── finding/             Validated finding pipeline
+├── validation/          Evidence validation
+├── timeline/            Temporal event tracking
+├── search/              Hybrid keyword+semantic search
+├── tui/                 Terminal UI (Bubble Tea)
+├── bus/                 In-process event bus
+├── cache/               Query + embedding cache
+├── config/              Configuration management
+├── logging/             Structured logging + redaction
+├── db/                  SQLite + migrations
+├── runner/              Command execution + capture
+├── journal/             Command history
+├── watcher/             Filesystem change detection
+├── watch/               Watch orchestrator
+├── scheduler/           Mission scheduling
+├── scope/               Authorization scope policy
+├── gates/               Human approval gates
+├── integration/         End-to-end integration tests
+└── e2e/                 Full trajectory tests
+pkg/
+├── domain/              Core types (Observation, Entity, Evidence, Hypothesis, Finding, ...)
+├── ai/                  ModelRouter, providers, types
+├── events/              Event type definitions
+└── errors/              Shared error types
+```
+
+---
+
+## 19. Conclusion
+
+DOGE is **not** an LLM agent wrapper. It is a **deterministic autonomous security research system** with a bounded LLM component used only for:
+- Natural-language grounding (docs → invariants)
+- Concept naming (induced relations → human labels)
+- Cross-domain pattern bridging (verified by experiment)
+
+The core discovery loop — **MDL anomaly → structural abstraction → causal experiment → ontology expansion → strategy learning** — operates fully algorithmically and is **falsifiable on Benchmarks C/D/J**.
+
+This architecture transforms DOGE from "autonomous pentester" to **"autonomous security science system"** — the genuine research contribution.
+
+---
+
+*Generated from analysis of implementation (334 Go files) and design documents (.doge/design/*.md)*

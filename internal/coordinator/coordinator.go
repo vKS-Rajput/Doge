@@ -472,8 +472,13 @@ func (c *ResearchCoordinator) planNextMission() *domain.MissionBrief {
 		}
 	}
 
+	// M3 property mission
+	bestProp:=c.propertyEvaluator.HighestGainUntested()
+	if bestProp!=nil{rtype:=propertyToResearcherType(bestProp.Class);if c.hasResearcher(rtype){return &domain.MissionBrief{ID:uuid.New(),ResearcherType:rtype,Title:fmt.Sprintf("Validate property: %s",bestProp.Statement),Description:fmt.Sprintf("Property tested."),TargetBaseURL:c.targetURL,Credentials:c.credentials,MaxRequests:30,MaxDuration:45*time.Second,SuccessCriteria:"Property evaluated >0.8"}}}
 	return nil
 }
+
+func propertyToResearcherType(pClass property.PropertyClass)domain.ResearcherType{switch pClass{case property.ClassAuthorization:return domain.ResearcherAuthorization;case property.ClassWorkflowIntegrity:return domain.ResearcherWorkflow;default:return domain.ResearcherRecon}}
 
 // dispatchMission sends a mission to the appropriate researcher and returns the result.
 func (c *ResearchCoordinator) dispatchMission(ctx context.Context, brief *domain.MissionBrief) (*domain.MissionResult, error) {

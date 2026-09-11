@@ -82,6 +82,8 @@ requiring AI. AI reasoning is available but optional.`,
 		// Enterprise Reporting & CI/CD Gating.
 		newReportCmd(),
 		newGateCmd(),
+		// Autonomous Security Scanner.
+		newScanCmd(),
 	)
 
 	return root

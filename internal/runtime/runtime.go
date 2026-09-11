@@ -33,6 +33,7 @@ type Runtime struct {
 	lifecycle        *LifecycleManager
 	broadcaster      *EventBroadcaster
 	ipcServer        *IPCServer
+	pipeServer       *PipeServer
 
 	// Active State
 	workspace      *Workspace
@@ -74,6 +75,7 @@ func NewRuntime(cfg RuntimeConfig) *Runtime {
 	}
 
 	rt.ipcServer = NewIPCServer(rt, broadcaster)
+	rt.pipeServer = NewPipeServer(rt, broadcaster)
 	return rt
 }
 
@@ -118,13 +120,22 @@ func (r *Runtime) Start(ctx context.Context) error {
 	}
 	r.environment = env
 
-	// 4. Start IPC Server if configured
+	// 4. Start HTTP/SSE IPC Server if configured
 	if r.config.IPCAddress != "" {
 		addr, err := r.ipcServer.Start(r.config.IPCAddress)
 		if err != nil {
-			r.broadcaster.Broadcast(EventWSLStatusChanged, "ipc", "Failed to start IPC server: "+err.Error(), nil)
+			r.broadcaster.Broadcast(EventWSLStatusChanged, "ipc", "Failed to start HTTP IPC server: "+err.Error(), nil)
 		} else {
-			r.broadcaster.Broadcast(EventRuntimeReady, "ipc", "IPC server listening on "+addr, map[string]any{"address": addr})
+			r.broadcaster.Broadcast(EventRuntimeReady, "ipc", "Local IPC server listening on "+addr, map[string]any{"address": addr})
+		}
+	}
+
+	// 5. Start Windows Named Pipe IPC Server
+	if r.pipeServer != nil {
+		if err := r.pipeServer.Start(DefaultPipePath); err != nil {
+			r.broadcaster.Broadcast(EventWSLStatusChanged, "ipc", "Named pipe start notice: "+err.Error(), nil)
+		} else {
+			r.broadcaster.Broadcast(EventRuntimeReady, "ipc", "Windows Named Pipe IPC ready on "+r.pipeServer.Path(), map[string]any{"pipe": r.pipeServer.Path()})
 		}
 	}
 
@@ -235,7 +246,18 @@ func (r *Runtime) Stop() error {
 		_ = r.ipcServer.Stop(context.Background())
 	}
 
+	if r.pipeServer != nil {
+		_ = r.pipeServer.Stop()
+	}
+
 	return r.lifecycle.TransitionTo(StateStopped, "Runtime stopped")
+}
+
+// PipeServer returns the active Windows Named Pipe server.
+func (r *Runtime) PipeServer() *PipeServer {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.pipeServer
 }
 
 // GetState returns current lifecycle state.

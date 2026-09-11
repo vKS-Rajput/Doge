@@ -3,442 +3,617 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DOGE — Security Research Operating Environment</title>
+  <title>DOGE — Security Research Workstation</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <div id="app">
-    <!-- TOP WORKSTATION BAR -->
-    <header class="top-bar">
-      <div class="brand-section">
-        <span class="logo-icon">◈</span>
-        <span class="brand-title">DOGE</span>
-        <div class="workspace-badge" id="wsBadge">
-          <span>WS:</span> <strong id="wsName">Acme Research</strong>
+  <div id="desktop-app">
+    <!-- ==================== TOP TITLEBAR & GLOBAL CONTROLS ==================== -->
+    <header class="titlebar" id="titlebar">
+      <div class="brand-group">
+        <div class="wolf-logo" id="wolfLogo">
+          <svg viewBox="0 0 100 100" class="wolf-svg">
+            <polygon points="50,10 65,30 85,25 75,50 90,65 70,80 50,95 30,80 10,65 25,50 15,25 35,30" fill="none" stroke="#00f0ff" stroke-width="3" stroke-linejoin="round"/>
+            <polygon points="50,22 62,38 72,42 64,56 75,68 50,85 25,68 36,56 28,42 38,38" fill="rgba(0, 240, 255, 0.12)" stroke="#00f0ff" stroke-width="2"/>
+            <polygon points="40,48 45,50 43,45" fill="#00f0ff"/>
+            <polygon points="60,48 55,50 57,45" fill="#00f0ff"/>
+            <polyline points="46,65 50,68 54,65 50,72 46,65" fill="#00f0ff"/>
+          </svg>
         </div>
-        <div class="target-badge" id="targetBadge">
-          🎯 <span id="currentTarget">https://authorized.example</span>
-        </div>
-      </div>
-
-      <div class="center-controls">
-        <!-- AUTONOMY SLIDER -->
-        <div class="autonomy-control" title="Autonomy Level: 1 (Passive) to 5 (Full Bounded Mission Autonomy)">
-          <span class="autonomy-label">Autonomy</span>
-          <div class="slider-container">
-            <input type="range" id="autonomySlider" min="1" max="5" value="4" step="1">
-            <span class="autonomy-val" id="autonomyVal">4</span>
-          </div>
-        </div>
-
-        <!-- PERSONALITY TOGGLE -->
-        <div class="personality-toggle">
-          <button class="personality-btn active" id="btnScientist" data-mode="scientist">SCIENTIST</button>
-          <button class="personality-btn" id="btnOperator" data-mode="operator">OPERATOR</button>
-        </div>
-
-        <!-- ENGINE STATE PILL -->
-        <div class="state-pill ready" id="engineStatePill">
-          <span class="status-dot"></span>
-          <span id="engineStateText">READY</span>
+        <div class="brand-text">
+          <div class="brand-name">DOGE</div>
+          <div class="brand-sub">SECURITY RESEARCH WORKSTATION</div>
         </div>
       </div>
 
-      <div class="header-actions">
-        <button class="btn btn-primary" id="btnStartResearch">
-          ▶ START RESEARCH
+      <!-- CENTER SEARCH / COMMAND PALETTE -->
+      <div class="search-container" id="searchTrigger">
+        <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span class="search-hotkey">Ctrl + Shift + P</span>
+        <input type="text" class="search-input" id="globalSearchInput" placeholder="Search anything...">
+      </div>
+
+      <!-- ACTION PILLS -->
+      <div class="header-pills">
+        <button class="pill-btn" id="btnNewTarget" title="Register Target Scope">
+          <span class="pill-icon">⊕</span> New Target
         </button>
-        <button class="btn" id="btnPauseResearch">
-          ⏸ PAUSE
+        <button class="pill-btn" id="btnQuickScan" title="Run fast port/banner discovery">
+          <span class="pill-icon">⌕</span> Quick Scan
         </button>
-        <button class="btn btn-danger" id="btnStopResearch">
-          ⏹ STOP
+        <button class="pill-btn" id="btnDeepRecon" title="Run autonomous deep recon">
+          <span class="pill-icon">🌐</span> Deep Recon
         </button>
-        <button class="btn" id="btnNewMission">
-          + NEW MISSION
+        <button class="pill-btn" id="btnExploitPath" title="Inspect Causal Invariants & Attack Paths">
+          <span class="pill-icon">⚡</span> Exploit Path
         </button>
-        <button class="btn" id="btnOpenPalette" title="Ctrl+Shift+P">
-          ⌘ PALETTE
+        <button class="pill-btn" id="btnOpenAI" title="AI Security Assistant">
+          <span class="pill-icon">🤖</span> AI Assistant
         </button>
+        <button class="pill-btn" id="btnReport" title="Export Certified Research Report">
+          <span class="pill-icon">📄</span> Report
+        </button>
+        <button class="pill-btn start-btn" id="btnStart" title="Start/Pause Autonomous Research Loop">
+          <span class="start-icon">▶</span> <span id="startBtnText">Start</span>
+        </button>
+      </div>
+
+      <!-- WINDOW CONTROLS & TAGLINE -->
+      <div class="window-controls-group">
+        <span class="tagline">Hack Smarter, Go Deeper.</span>
+        <div class="window-buttons">
+          <button class="win-btn win-min" id="winMin" title="Minimize">—</button>
+          <button class="win-btn win-max" id="winMax" title="Maximize">□</button>
+          <button class="win-btn win-close" id="winClose" title="Close">✕</button>
+        </div>
       </div>
     </header>
 
-    <!-- MAIN WORKSPACE STAGE -->
-    <div class="main-stage">
-      <!-- LEFT ACTIVITY BAR -->
-      <nav class="activity-bar">
-        <button class="nav-item active" data-surface="mission" title="Mission Overview">
-          <span class="nav-icon">🧭</span>
-          <span class="nav-label">Mission</span>
-        </button>
-        <button class="nav-item" data-surface="surface" title="Target Surface">
-          <span class="nav-icon">🌐</span>
-          <span class="nav-label">Surface</span>
-        </button>
-        <button class="nav-item" data-surface="research" title="Research Frontier">
-          <span class="nav-icon">🧠</span>
-          <span class="nav-label">Research</span>
-        </button>
-        <button class="nav-item" data-surface="worldmodel" title="World Model Graph">
-          <span class="nav-icon">🕸</span>
-          <span class="nav-label">World</span>
-        </button>
-        <button class="nav-item" data-surface="experiments" title="Experiments & Strategies">
-          <span class="nav-icon">🧪</span>
-          <span class="nav-label">Probes</span>
-        </button>
-        <button class="nav-item" data-surface="findings" title="Proven Findings">
-          <span class="nav-icon">🔬</span>
-          <span class="nav-label">Findings</span>
-        </button>
-        <button class="nav-item" data-surface="evidence" title="Cryptographic Evidence">
-          <span class="nav-icon">📜</span>
-          <span class="nav-label">Evidence</span>
-        </button>
-        <button class="nav-item" data-surface="benchmarks" title="Adversarial Benchmarks">
-          <span class="nav-icon">📊</span>
-          <span class="nav-label">Bench</span>
-        </button>
-        <div class="activity-bar-spacer"></div>
-        <button class="nav-item" data-surface="terminal" title="WSL Laboratory Terminal">
-          <span class="nav-icon">💻</span>
-          <span class="nav-label">Terminal</span>
-        </button>
-        <button class="nav-item" data-surface="environment" title="Environment & WSL Center">
-          <span class="nav-icon">⚙</span>
-          <span class="nav-label">Lab</span>
-        </button>
+    <!-- ==================== WORKSPACE BODY ==================== -->
+    <div class="workspace-body">
+      <!-- LEFT NAVIGATION RAIL -->
+      <nav class="nav-rail" id="navRail">
+        <div class="nav-items">
+          <button class="rail-item active" data-view="dashboard" title="Dashboard">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span class="rail-label">Dashboard</span>
+          </button>
+          <button class="rail-item" data-view="recon" title="Reconnaissance">
+            <svg class="rail-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span class="rail-label">Recon</span>
+          </button>
+          <button class="rail-item" data-view="targets" title="Targets">
+            <svg class="rail-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+            <span class="rail-label">Targets</span>
+          </button>
+          <button class="rail-item" data-view="vulnerabilities" title="Vulnerabilities">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span class="rail-label">Vulnerabilities</span>
+          </button>
+          <button class="rail-item" data-view="exploitation" title="Exploitation & Invariant Probing">
+            <svg class="rail-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span class="rail-label">Exploitation</span>
+          </button>
+          <button class="rail-item" data-view="post_exploitation" title="Post-Exploitation Analysis">
+            <svg class="rail-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span class="rail-label">Post-Exploitation</span>
+          </button>
+          <button class="rail-item" data-view="world_map" title="World Model Topological Graph">
+            <svg class="rail-icon" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="15.5" y2="7.5"></line><line x1="7.5" y1="8.5" x2="10.5" y2="15.5"></line><line x1="16.5" y1="8.5" x2="13.5" y2="15.5"></line></svg>
+            <span class="rail-label">World Map</span>
+          </button>
+          <button class="rail-item" data-view="evidence" title="Cryptographic Evidence Vault">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span class="rail-label">Evidence</span>
+          </button>
+          <button class="rail-item" data-view="reports" title="Certified Audit Reports">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span class="rail-label">Reports</span>
+          </button>
+          <button class="rail-item" data-view="automation" title="Autonomous Research Director">
+            <svg class="rail-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span class="rail-label">Automation</span>
+          </button>
+          <button class="rail-item" data-view="ai_assistant" title="AI Security Assistant">
+            <svg class="rail-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+            <span class="rail-label">AI Assistant</span>
+          </button>
+          <button class="rail-item" data-view="playbooks" title="Research Playbooks">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            <span class="rail-label">Playbooks</span>
+          </button>
+          <button class="rail-item" data-view="toolbox" title="WSL Security Toolchain">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            <span class="rail-label">Toolbox</span>
+          </button>
+          <button class="rail-item" data-view="terminal" title="Integrated WSL2 Terminal">
+            <svg class="rail-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            <span class="rail-label">Terminal</span>
+          </button>
+          <button class="rail-item" data-view="notes" title="Research Notes & Hypotheses">
+            <svg class="rail-icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <span class="rail-label">Notes</span>
+          </button>
+          <button class="rail-item" data-view="settings" title="Environment Settings">
+            <svg class="rail-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span class="rail-label">Settings</span>
+          </button>
+        </div>
+
+        <!-- BOTTOM WATERMARK LOGO -->
+        <div class="rail-footer">
+          <div class="watermark-wolf">
+            <svg viewBox="0 0 100 100" class="watermark-svg">
+              <polygon points="50,15 65,35 85,30 75,55 90,70 70,85 50,95 30,85 10,70 25,55 15,30 35,35" fill="none" stroke="rgba(0, 240, 255, 0.2)" stroke-width="2"/>
+              <circle cx="38" cy="50" r="3" fill="rgba(0, 240, 255, 0.35)"/>
+              <circle cx="62" cy="50" r="3" fill="rgba(0, 240, 255, 0.35)"/>
+            </svg>
+            <div class="watermark-quote">
+              <span>Different</span>
+              <span>Tools.</span>
+              <span>Greater</span>
+              <span>Researchers.</span>
+            </div>
+          </div>
+        </div>
       </nav>
 
-      <!-- CENTRAL CONTENT AREA -->
-      <main class="content-area">
-        <!-- SURFACE 1: MISSION -->
-        <section class="surface-view active" id="view-mission">
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-header">Target Surface</div>
-              <div class="stat-value" id="statEndpointsCount">47</div>
-              <div class="stat-subtitle">Observed endpoints & routes</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Active Frontier</div>
-              <div class="stat-value" id="statFrontierCount" style="color: var(--accent-cyan);">14</div>
-              <div class="stat-subtitle">Unexplored state invariants</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Hypotheses Tested</div>
-              <div class="stat-value" id="statHypothesesCount">28</div>
-              <div class="stat-subtitle">Epistemic version space</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Proven Findings</div>
-              <div class="stat-value" id="statFindingsCount" style="color: var(--accent-crimson);">3</div>
-              <div class="stat-subtitle">Cryptographically attested</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Request Budget</div>
-              <div class="stat-value" id="statBudgetUsed">342 / 5,000</div>
-              <div class="stat-subtitle">Governed by safety policy</div>
+      <!-- MAIN COCKPIT VIEWPORT -->
+      <main class="cockpit-viewport" id="cockpitViewport">
+        <!-- ==================== ROW 1: METRICS WIDGETS ==================== -->
+        <div class="metrics-row">
+          <!-- CARD 1: CURRENT TARGET -->
+          <div class="metric-card card-target">
+            <div class="card-label">CURRENT TARGET</div>
+            <div class="target-row">
+              <div class="target-globe-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              </div>
+              <div class="target-meta">
+                <div class="target-title-line">
+                  <span class="target-name" id="metricTargetName">example.com</span>
+                  <span class="status-badge active" id="metricTargetStatus">Active</span>
+                </div>
+                <div class="target-ip" id="metricTargetIP">192.168.1.10</div>
+              </div>
             </div>
           </div>
 
-          <div class="detail-card">
-            <div class="detail-title">MISSION CONTRACT & AUTONOMOUS RESEARCH OBJECTIVE</div>
-            <div class="detail-body" id="missionSummaryText">
-              Conducting algorithmic scientific security discovery against <strong>https://authorized.example</strong>. Exploring unknown state transitions, isolating authorization boundaries via causal interventions, and attesting provable flaws with zero false positives.
+          <!-- CARD 2: SCAN STATUS -->
+          <div class="metric-card card-scan">
+            <div class="card-label">SCAN STATUS</div>
+            <div class="scan-status-row">
+              <div class="radar-circle-icon">
+                <svg viewBox="0 0 24 24" class="radar-spin"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><line x1="12" y1="12" x2="19" y2="5"></line></svg>
+              </div>
+              <div class="scan-meta">
+                <div class="scan-title" id="metricScanTitle">Deep Recon</div>
+                <div class="scan-progress-text">
+                  <span id="metricScanState">Running...</span>
+                  <span class="scan-pct" id="metricScanPct">73%</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-bar" id="metricScanProgressBar" style="width: 73%;"></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="detail-card" style="flex: 1;">
-            <div class="detail-title">AUTONOMOUS RESEARCH ENGINE LOG & CAUSAL TELEMETRY</div>
-            <div class="terminal-logs" id="missionTelemetryLog" style="height: 320px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); padding: 10px;">
-              <div class="terminal-line system">[00:00:01] ◈ DOGE Operating Environment Kernel initialized</div>
-              <div class="terminal-line system">[00:00:02] WSL2 laboratory substrate detected: kali-linux</div>
-              <div class="terminal-line stdout">[00:00:04] Surface mapping: 47 endpoints registered in Unified World Model</div>
-              <div class="terminal-line system">[00:00:10] Research frontier identified 14 high-uncertainty state vertices</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- SURFACE 2: SURFACE -->
-        <section class="surface-view" id="view-surface">
-          <div class="detail-title">DISCOVERED ATTACK SURFACE & ENDPOINTS</div>
-          <table class="data-table" id="surfaceTable">
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>URL / Route</th>
-                <th>Status</th>
-                <th>Parameters</th>
-                <th>Source</th>
-              </tr>
-            </thead>
-            <tbody id="surfaceTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 3: RESEARCH -->
-        <section class="surface-view" id="view-research">
-          <div class="detail-title">ACTIVE RESEARCH FRONTIER & HYPOTHESIS VERSION SPACE</div>
-          <div class="stats-grid" style="margin-bottom: 16px;">
-            <div class="stat-card">
-              <div class="stat-header">High Uncertainty Vertices</div>
-              <div class="stat-value" id="frontierHigh">5</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Active Hypotheses</div>
-              <div class="stat-value" id="hypothesesActive">8</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Falsified Hypotheses</div>
-              <div class="stat-value" id="hypothesesFalsified">12</div>
-            </div>
-          </div>
-          <table class="data-table" id="hypothesesTable">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Category</th>
-                <th>Hypothesis Statement</th>
-                <th>Confidence</th>
-                <th>Epistemic Status</th>
-              </tr>
-            </thead>
-            <tbody id="hypothesesTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 4: WORLD MODEL -->
-        <section class="surface-view" id="view-worldmodel" style="padding: 10px; gap: 8px;">
-          <div class="graph-viewport">
-            <canvas id="worldGraphCanvas"></canvas>
-            <div class="graph-overlay-controls">
-              <button class="btn" id="btnResetZoom">⟲ Reset Zoom</button>
-              <button class="btn" id="btnLayoutGraph">⚡ Physics Layout</button>
-            </div>
-          </div>
-        </section>
-
-        <!-- SURFACE 5: EXPERIMENTS -->
-        <section class="surface-view" id="view-experiments">
-          <div class="detail-title">PARETO SYNTHESIZED RESEARCH STRATEGY PROGRAMS</div>
-          <table class="data-table" id="experimentsTable">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Strategy Name</th>
-                <th>Info Gain</th>
-                <th>Novelty</th>
-                <th>Risk Score</th>
-                <th>Req Cost</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="experimentsTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 6: FINDINGS -->
-        <section class="surface-view" id="view-findings">
-          <div class="detail-title">CONFIRMED SECURITY VULNERABILITIES (ZERO FALSE-POSITIVES)</div>
-          <table class="data-table" id="findingsTable">
-            <thead>
-              <tr>
-                <th>Severity</th>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Endpoint</th>
-                <th>CVSS</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="findingsTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 7: EVIDENCE -->
-        <section class="surface-view" id="view-evidence">
-          <div class="detail-title">CRYPTOGRAPHIC PROOF BUNDLES & MERKLE LEDGERS</div>
-          <table class="data-table" id="evidenceTable">
-            <thead>
-              <tr>
-                <th>Finding ID</th>
-                <th>Vulnerability Class</th>
-                <th>Merkle Root</th>
-                <th>Chained Digest</th>
-                <th>Attestation Seal</th>
-                <th>Replay</th>
-              </tr>
-            </thead>
-            <tbody id="evidenceTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 8: BENCHMARKS -->
-        <section class="surface-view" id="view-benchmarks">
-          <div class="detail-title">ADVERSARIAL SCIENTIFIC BENCHMARK SUITE</div>
-          <table class="data-table" id="benchmarksTable">
-            <thead>
-              <tr>
-                <th>Scenario</th>
-                <th>Target Domain</th>
-                <th>Challenge Type</th>
-                <th>Ground Truth Vulnerability</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="benchmarksTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
-
-        <!-- SURFACE 9: TERMINAL -->
-        <section class="surface-view" id="view-terminal" style="padding: 10px;">
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <span>WSL2 KALI LABORATORY CONSOLE (RESEARCH-AWARE)</span>
-              <span>Bash / wsl.exe</span>
-            </div>
-            <div class="terminal-logs" id="terminalLog">
-              <div class="terminal-line system">◈ DOGE WSL2 Terminal Session Attached</div>
-              <div class="terminal-line system">Tool output is parsed automatically into World Model observations.</div>
-            </div>
-            <div class="terminal-input-row">
-              <span class="terminal-prompt-symbol">doge-lab:~$</span>
-              <input type="text" class="terminal-input" id="terminalInput" placeholder="Type Linux / offensive security command (e.g. nmap, httpx, ffuf)..." autocomplete="off">
-            </div>
-          </div>
-        </section>
-
-        <!-- SURFACE 10: ENVIRONMENT -->
-        <section class="surface-view" id="view-environment">
-          <div class="detail-title">ENVIRONMENT CENTER & MANAGED WSL SUBSTRATE</div>
-          <div class="stats-grid" style="margin-bottom: 16px;">
-            <div class="stat-card">
-              <div class="stat-header">WSL Substrate</div>
-              <div class="stat-value" id="envWSLState" style="color: var(--accent-emerald);">Active</div>
-              <div class="stat-subtitle" id="envWSLDistro">Distribution: kali-linux</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Go Core Engine</div>
-              <div class="stat-value" id="envGoVersion">v7.0.0</div>
-              <div class="stat-subtitle">Deterministic & Offline</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-header">Network Policy</div>
-              <div class="stat-value" style="color: var(--accent-amber);">Strict</div>
-              <div class="stat-subtitle">Authorized Hosts Only</div>
+          <!-- CARD 3: FINDINGS -->
+          <div class="metric-card card-findings">
+            <div class="card-label">FINDINGS</div>
+            <div class="findings-badges-grid">
+              <div class="finding-badge-item">
+                <div class="badge-bubble critical" id="badgeCritical">12</div>
+                <div class="badge-name">Critical</div>
+              </div>
+              <div class="finding-badge-item">
+                <div class="badge-bubble high" id="badgeHigh">28</div>
+                <div class="badge-name">High</div>
+              </div>
+              <div class="finding-badge-item">
+                <div class="badge-bubble medium" id="badgeMedium">47</div>
+                <div class="badge-name">Medium</div>
+              </div>
+              <div class="finding-badge-item">
+                <div class="badge-bubble low" id="badgeLow">93</div>
+                <div class="badge-name">Low</div>
+              </div>
             </div>
           </div>
 
-          <div class="detail-title">LABORATORY TOOLCHAIN INVENTORY</div>
-          <table class="data-table" id="toolchainTable">
-            <thead>
-              <tr>
-                <th>Tool Name</th>
-                <th>Status</th>
-                <th>Execution Environment</th>
-                <th>Path</th>
-              </tr>
-            </thead>
-            <tbody id="toolchainTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </section>
+          <!-- CARD 4: SYSTEM -->
+          <div class="metric-card card-system">
+            <div class="system-header-line">
+              <span class="card-label">SYSTEM</span>
+              <div class="system-pills">
+                <span class="sys-pill wsl"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><circle cx="12" cy="12" r="8"></circle></svg> WSL2</span>
+                <span class="sys-pill kali">🐉 Kali Linux</span>
+                <span class="sys-status-dot online">● Online</span>
+              </div>
+            </div>
+            <div class="system-stats-grid">
+              <div class="sys-stat-col">
+                <span class="stat-name">CPU</span>
+                <span class="stat-val" id="sysCpuVal">32%</span>
+              </div>
+              <div class="sys-stat-col">
+                <span class="stat-name">RAM</span>
+                <span class="stat-val" id="sysRamVal">5.1/16 GB</span>
+              </div>
+              <div class="sys-stat-col">
+                <span class="stat-name">Disk</span>
+                <span class="stat-val" id="sysDiskVal">120 GB free</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== ROW 2: VISUALIZER, TARGET DETAILS, AI ASSISTANT ==================== -->
+        <div class="middle-row">
+          <!-- ATTACK SURFACE VISUALIZER -->
+          <div class="visualizer-card">
+            <div class="card-header-bar">
+              <div class="header-left">
+                <span class="card-icon">🕸</span>
+                <span class="card-title">ATTACK SURFACE VISUALIZER</span>
+              </div>
+              <div class="visualizer-tabs">
+                <button class="vis-tab active" data-vistab="network">Network View</button>
+                <button class="vis-tab" data-vistab="attackpath">Attack Path</button>
+                <button class="vis-tab" data-vistab="dependencies">Dependencies</button>
+                <button class="vis-tab" data-vistab="custom">Custom</button>
+              </div>
+              <button class="btn-icon-square" id="btnExpandVisualizer" title="Fullscreen Visualizer">⛶</button>
+            </div>
+
+            <div class="canvas-container" id="canvasContainer">
+              <canvas id="attackSurfaceCanvas"></canvas>
+              <div class="canvas-zoom-controls">
+                <button class="zoom-btn" id="btnZoomIn">+</button>
+                <button class="zoom-btn" id="btnZoomOut">—</button>
+              </div>
+            </div>
+
+            <div class="visualizer-legend">
+              <span class="legend-item"><span class="legend-dot green"></span> Discovered</span>
+              <span class="legend-item"><span class="legend-dot red"></span> Vulnerable</span>
+              <span class="legend-item"><span class="legend-dot orange"></span> Exploitable</span>
+              <span class="legend-item"><span class="legend-dot blue"></span> Internal</span>
+              <span class="legend-item"><span class="legend-dot cyan"></span> External</span>
+            </div>
+          </div>
+
+          <!-- TARGET DETAILS & QUICK ACTIONS -->
+          <div class="target-details-card">
+            <div class="card-header-bar">
+              <div class="header-left">
+                <span class="card-title">TARGET DETAILS</span>
+              </div>
+            </div>
+
+            <div class="details-target-identity">
+              <div class="target-globe-icon small">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              </div>
+              <div>
+                <div class="target-name-bold" id="detailTargetName">example.com</div>
+                <div class="target-ip-sub" id="detailTargetIP">192.168.1.10</div>
+              </div>
+            </div>
+
+            <div class="properties-table">
+              <div class="prop-row">
+                <span class="prop-key">Status</span>
+                <span class="prop-val text-green" id="propStatus">Active</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">Technology</span>
+                <span class="prop-val" id="propTech">Nginx 1.24.0</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">WAF</span>
+                <span class="prop-val text-muted" id="propWAF">Not Detected</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">Open Ports</span>
+                <span class="prop-val" id="propPorts">80, 443, 22, 3306, 6379</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">OS</span>
+                <span class="prop-val" id="propOS">Linux (Ubuntu)</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">Location</span>
+                <span class="prop-val" id="propLocation">🇺🇸 United States</span>
+              </div>
+              <div class="prop-row">
+                <span class="prop-key">Risk Score</span>
+                <span class="prop-val text-danger bold" id="propRisk">8.7 / 10</span>
+              </div>
+            </div>
+
+            <div class="quick-actions-section">
+              <div class="section-title">QUICK ACTIONS</div>
+              <div class="actions-grid">
+                <button class="action-btn" id="qaRunNmap">Run Nmap</button>
+                <button class="action-btn" id="qaDirectoryScan">Directory Scan</button>
+                <button class="action-btn" id="qaFindSubdomains">Find Subdomains</button>
+                <button class="action-btn" id="qaCheckVulns">Check Vulns</button>
+                <button class="action-btn" id="qaExploitSearch">Exploit Search</button>
+                <button class="action-btn" id="qaOpenTerminal">Open in Terminal</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI SECURITY ASSISTANT -->
+          <div class="ai-assistant-card">
+            <div class="card-header-bar">
+              <div class="header-left">
+                <span class="ai-bot-icon">🤖</span>
+                <span class="card-title">AI SECURITY ASSISTANT</span>
+              </div>
+              <div class="ai-status-pill">
+                <span class="dot-online">●</span> Online
+              </div>
+            </div>
+
+            <div class="ai-chat-body" id="aiChatBody">
+              <!-- INITIAL ASSISTANT MESSAGE -->
+              <div class="chat-message assistant">
+                <div class="chat-avatar">
+                  <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                </div>
+                <div class="chat-bubble">
+                  How can I help you today?
+                </div>
+              </div>
+            </div>
+
+            <!-- PRESET PROMPT CHIPS -->
+            <div class="preset-chips-container" id="presetChips">
+              <button class="preset-chip" data-prompt="Analyze these scan results">Analyze these scan results</button>
+              <button class="preset-chip" data-prompt="Explain this vulnerability">Explain this vulnerability</button>
+              <button class="preset-chip" data-prompt="Suggest next steps">Suggest next steps</button>
+              <button class="preset-chip" data-prompt="Generate an exploit script">Generate verification probe</button>
+              <button class="preset-chip" data-prompt="Help me with privilege escalation">Help me with privilege escalation</button>
+              <button class="preset-chip" data-prompt="Create a report for this target">Create a report for this target</button>
+            </div>
+
+            <!-- CHAT INPUT -->
+            <div class="ai-input-wrapper">
+              <input type="text" class="ai-input" id="aiInput" placeholder="Ask anything about security...">
+              <button class="ai-send-btn" id="btnSendAI" title="Send message">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="2 21 23 12 2 3 2 10 17 12 2 14 2 21"></polygon></svg>
+              </button>
+            </div>
+            <div class="ai-footer-disclaimer">
+              ⚡ Powered by local/online LLM (Your choice)
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== ROW 3: TERMINAL, FINDINGS TABLE, EVIDENCE ==================== -->
+        <div class="bottom-row">
+          <!-- INTEGRATED TERMINAL (WSL2 - KALI LINUX) -->
+          <div class="terminal-card">
+            <div class="terminal-header-bar">
+              <div class="term-title-tabs">
+                <span class="term-main-title">INTEGRATED TERMINAL (WSL2 - Kali Linux)</span>
+              </div>
+              <div class="term-tabs">
+                <div class="term-tab active">
+                  <span class="tab-kali-icon">🐉</span> kali <span class="tab-close">✕</span>
+                </div>
+                <button class="term-tab-add" id="btnAddTermTab" title="New Terminal Session">+</button>
+              </div>
+              <div class="term-window-controls">
+                <button class="tw-btn" id="btnMinTerm">—</button>
+                <button class="tw-btn" id="btnMaxTerm">⛶</button>
+                <button class="tw-btn" id="btnClearTerm">✕</button>
+              </div>
+            </div>
+
+            <div class="terminal-body" id="terminalOutput">
+              <div class="term-line term-prompt">┌──(kali㉿doge)-[~/workspace/example.com]</div>
+              <div class="term-line term-cmd">└─$ nmap -sV -sC -oN scan.txt example.com</div>
+              <div class="term-line term-info">Starting Nmap 7.94...</div>
+              <div class="term-line term-info">Nmap scan report for example.com (192.168.1.10)</div>
+              <div class="term-line term-info">Host is up (0.023s latency).</div>
+              <div class="term-line term-table-head">PORT     STATE SERVICE VERSION</div>
+              <div class="term-line"><span class="port-num">22/tcp</span>   <span class="state-open">open</span>  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.1</div>
+              <div class="term-line"><span class="port-num">80/tcp</span>   <span class="state-open">open</span>  http    nginx 1.24.0</div>
+              <div class="term-line"><span class="port-num">443/tcp</span>  <span class="state-open">open</span>  https   nginx 1.24.0</div>
+              <div class="term-line"><span class="port-num">3306/tcp</span> <span class="state-open">open</span>  mysql   MySQL 8.0.32</div>
+              <div class="term-line"><span class="port-num">6379/tcp</span> <span class="state-open">open</span>  redis   Redis 7.0.11</div>
+              <div class="term-line term-prompt">┌──(kali㉿doge)-[~/workspace/example.com]</div>
+              <div class="term-input-line">
+                <span class="term-cmd">└─$&nbsp;</span>
+                <input type="text" class="term-cli-input" id="termCliInput" autofocus autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+          </div>
+
+          <!-- SCAN RESULTS / VULNERABILITIES TABLE -->
+          <div class="results-card">
+            <div class="results-header-bar">
+              <div class="results-tabs">
+                <button class="res-tab active" data-restab="scan">SCAN RESULTS</button>
+                <button class="res-tab" data-restab="vulns">VULNERABILITIES (12)</button>
+                <button class="res-tab" data-restab="exploitdb">EXPLOIT DB</button>
+                <button class="res-tab" data-restab="notes">NOTES</button>
+              </div>
+              <button class="res-close-btn" title="Close Panel">✕</button>
+            </div>
+
+            <div class="table-container">
+              <table class="findings-table" id="findingsTable">
+                <thead>
+                  <tr>
+                    <th width="36">#</th>
+                    <th width="100">SEVERITY</th>
+                    <th>TITLE</th>
+                    <th width="140">TARGET</th>
+                    <th width="30"></th>
+                  </tr>
+                </thead>
+                <tbody id="findingsTableBody">
+                  <tr class="table-row" data-id="1">
+                    <td class="row-num">1</td>
+                    <td><span class="sev-pill critical">Critical</span></td>
+                    <td class="row-title">SQL Injection</td>
+                    <td class="row-target">/login</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="2">
+                    <td class="row-num">2</td>
+                    <td><span class="sev-pill critical">Critical</span></td>
+                    <td class="row-title">Remote Code Execution</td>
+                    <td class="row-target">/api/v1/users</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="3">
+                    <td class="row-num">3</td>
+                    <td><span class="sev-pill high">High</span></td>
+                    <td class="row-title">Directory Traversal</td>
+                    <td class="row-target">/files</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="4">
+                    <td class="row-num">4</td>
+                    <td><span class="sev-pill high">High</span></td>
+                    <td class="row-title">SSRF</td>
+                    <td class="row-target">/api/fetch</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="5">
+                    <td class="row-num">5</td>
+                    <td><span class="sev-pill medium">Medium</span></td>
+                    <td class="row-title">Exposed Admin Panel</td>
+                    <td class="row-target">/admin</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="6">
+                    <td class="row-num">6</td>
+                    <td><span class="sev-pill medium">Medium</span></td>
+                    <td class="row-title">Information Disclosure</td>
+                    <td class="row-target">/config</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="7">
+                    <td class="row-num">7</td>
+                    <td><span class="sev-pill low">Low</span></td>
+                    <td class="row-title">Missing Security Headers</td>
+                    <td class="row-target">-</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                  <tr class="table-row" data-id="8">
+                    <td class="row-num">8</td>
+                    <td><span class="sev-pill low">Low</span></td>
+                    <td class="row-title">Outdated Software</td>
+                    <td class="row-target">nginx 1.24.0</td>
+                    <td class="row-arrow">›</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- EVIDENCE & SCREENSHOTS -->
+          <div class="evidence-card">
+            <div class="card-header-bar">
+              <span class="card-title">EVIDENCE & SCREENSHOTS</span>
+              <a href="#" class="view-all-link" id="linkViewAllEvidence">View All</a>
+            </div>
+
+            <div class="evidence-grid">
+              <div class="evidence-thumbnail-card" data-proof="sql_injection_proof.png">
+                <div class="thumbnail-frame">
+                  <div class="mini-terminal-preview">
+                    <span class="mt-red">[VULN]</span> SQLi verified<br>
+                    payload: ' OR 1=1--<br>
+                    HTTP/1.1 200 OK
+                  </div>
+                </div>
+                <div class="evidence-info">
+                  <span class="evidence-name">sql_injection_proof.png</span>
+                  <span class="evidence-time">2 mins ago</span>
+                </div>
+              </div>
+
+              <div class="evidence-thumbnail-card" data-proof="admin_panel.png">
+                <div class="thumbnail-frame">
+                  <div class="mini-browser-preview">
+                    <div class="mb-top">/admin/dashboard</div>
+                    <div class="mb-body">Admin Console: Root</div>
+                  </div>
+                </div>
+                <div class="evidence-info">
+                  <span class="evidence-name">admin_panel.png</span>
+                  <span class="evidence-time">5 mins ago</span>
+                </div>
+              </div>
+
+              <div class="evidence-thumbnail-card" data-proof="directory_listing.png">
+                <div class="thumbnail-frame">
+                  <div class="mini-terminal-preview">
+                    Index of /files/<br>
+                    ▸ backup.zip<br>
+                    ▸ secret_config.json
+                  </div>
+                </div>
+                <div class="evidence-info">
+                  <span class="evidence-name">directory_listing.png</span>
+                  <span class="evidence-time">8 mins ago</span>
+                </div>
+              </div>
+
+              <div class="evidence-thumbnail-card" data-proof="rce_output.png">
+                <div class="thumbnail-frame">
+                  <div class="mini-terminal-preview">
+                    uid=0(root) gid=0(root)<br>
+                    Linux target 5.15.0-generic<br>
+                    # proof sealed
+                  </div>
+                </div>
+                <div class="evidence-info">
+                  <span class="evidence-name">rce_output.png</span>
+                  <span class="evidence-time">12 mins ago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
-
-      <!-- RIGHT INSPECTOR DRAWER -->
-      <aside class="inspector-drawer">
-        <div class="inspector-header">
-          <span>RESEARCH INSPECTOR</span>
-          <span style="font-family: var(--font-mono); color: var(--accent-cyan);" id="inspectorType">PROVENANCE</span>
-        </div>
-        <div class="inspector-content" id="inspectorContent">
-          <div class="detail-card">
-            <div class="detail-title">CURRENT INVESTIGATION FOCUS</div>
-            <div class="detail-body" id="inspectorFocusText">
-              Select any graph node, hypothesis, experiment, or finding to inspect its mathematical provenance, causal relations, and decision rationale.
-            </div>
-          </div>
-
-          <div class="detail-card" id="inspectorWhyCard" style="display: none;">
-            <div class="detail-title" style="color: var(--accent-cyan);">WHY THIS EXPERIMENT?</div>
-            <div class="detail-body" id="inspectorWhyText"></div>
-          </div>
-
-          <div class="detail-card" id="inspectorEvidenceCard" style="display: none;">
-            <div class="detail-title">REPLAY EVIDENCE CHAIN</div>
-            <div class="evidence-chain-list" id="inspectorEvidenceChain"></div>
-          </div>
-        </div>
-      </aside>
     </div>
 
-    <!-- BOTTOM LIVE EVENT STREAM -->
-    <footer class="event-stream-bar">
-      <div class="event-ticker">
-        <span class="live-dot"></span>
-        <span>LIVE TELEMETRY:</span>
-        <span id="latestEventText">Runtime kernel ready. Awaiting research command.</span>
+    <!-- ==================== BOTTOM STATUS BAR ==================== -->
+    <footer class="statusbar" id="statusbar">
+      <div class="status-left">
+        <span class="status-item brand-version">DOGE v1.0.0</span>
+        <span class="status-item offline-badge"><span class="dot-green">●</span> Offline Mode</span>
+        <span class="status-item ws-badge">Workspace: <strong id="statusWs">example.com</strong></span>
+        <span class="status-item tools-badge"><span class="icon-wrench">🛠</span> Tools Ready (<span id="statusToolCount">24</span>)</span>
+        <span class="status-item wsl-badge"><span class="icon-bolt">⚡</span> WSL2: <span id="statusWslDistro">kali-linux</span></span>
+        <span class="status-item ai-badge"><span class="icon-bot">🤖</span> AI: Local (<span id="statusAiModel">llama3</span>)</span>
       </div>
-      <div id="eventCountBadge" style="color: var(--text-muted);">Events: 0</div>
+      <div class="status-right">
+        <span class="status-quote">"Knowledge is the ultimate exploit." — DOGE</span>
+      </div>
     </footer>
-  </div>
-
-  <!-- MISSION BUILDER MODAL -->
-  <div class="modal-overlay" id="missionModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span class="modal-title">START NEW SECURITY RESEARCH MISSION</span>
-        <button class="btn" id="btnCloseMissionModal">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Target URL / Base Scope</label>
-          <input type="text" class="form-input" id="inputMissionTarget" value="https://authorized.example">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Objective</label>
-          <input type="text" class="form-input" id="inputMissionObjective" value="Autonomous security research & property falsification">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Request Budget Ceiling</label>
-          <input type="number" class="form-input" id="inputMissionBudget" value="5000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Risk Tolerance (0.0 Safe - 1.0 Destructive)</label>
-          <input type="text" class="form-input" id="inputMissionRisk" value="0.60 (Conservative)">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn" id="btnCancelMission">Cancel</button>
-        <button class="btn btn-primary" id="btnSubmitMission">LAUNCH MISSION</button>
-      </div>
-    </div>
   </div>
 
   <!-- COMMAND PALETTE MODAL -->
   <div class="modal-overlay" id="paletteModal">
-    <div class="palette-box">
-      <div class="palette-input-wrapper">
-        <span style="color: var(--accent-cyan); margin-right: 10px; font-weight: 700;">></span>
-        <input type="text" class="palette-input" id="paletteInput" placeholder="Type a command or search actions..." autocomplete="off">
+    <div class="palette-dialog">
+      <div class="palette-input-row">
+        <span class="palette-prefix">></span>
+        <input type="text" class="palette-input" id="paletteSearch" placeholder="Type a command or action...">
       </div>
-      <div class="palette-list" id="paletteList">
-        <!-- Dynamically populated -->
-      </div>
+      <div class="palette-list" id="paletteList"></div>
     </div>
   </div>
 

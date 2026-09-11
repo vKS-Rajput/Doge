@@ -4,10 +4,13 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 
+	"github.com/vKS-Rajput/doge/internal/runtime"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/vKS-Rajput/doge/internal/runtime"
 )
 
 //go:embed all:frontend
@@ -48,6 +51,24 @@ func Run(cfg DesktopConfig) error {
 			fmt.Printf("◈ Local IPC API listening on %s\n", cfg.IPCAddress)
 		}
 		select {} // Block indefinitely
+	}
+
+	// Check for compiled native Windows desktop application (C# / .NET)
+	nativeExeCandidates := []string{
+		filepath.Join(cfg.WorkspaceRoot, "desktop", "DOGE.Desktop", "bin", "Debug", "net10.0-windows", "DOGE.exe"),
+		filepath.Join(cfg.WorkspaceRoot, "desktop", "DOGE.Desktop", "bin", "Release", "net10.0-windows", "DOGE.exe"),
+		filepath.Join(cfg.WorkspaceRoot, "DOGE.exe"),
+		"DOGE.exe",
+	}
+
+	for _, exePath := range nativeExeCandidates {
+		if fi, err := os.Stat(exePath); err == nil && !fi.IsDir() {
+			fmt.Printf("◈ Launching Native Windows Workstation: %s\n", exePath)
+			cmd := exec.Command(exePath)
+			if err := cmd.Start(); err == nil {
+				return cmd.Wait()
+			}
+		}
 	}
 
 	// Create Wails App bound to DOGE runtime

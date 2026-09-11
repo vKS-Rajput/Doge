@@ -1,758 +1,710 @@
-// DOGE Desktop v1 — Security Research Operating Environment Cockpit Engine
-// Seamlessly bridges Wails Go Bindings & native events with fallback to local IPC REST/SSE.
+// DOGE Security Research Workstation — Cockpit Engine
+// Exact visual implementation matching the native desktop workstation architecture.
 
 (function () {
   'use strict';
 
-  // --- STATE MANAGEMENT ---
+  // --- STATE ---
   const state = {
-    workspace: null,
-    environment: null,
-    lifecycleState: 'READY',
-    autonomyLevel: 4,
-    personalityMode: 'scientist',
-    activeSurface: 'mission',
-    nodes: [],
-    edges: [],
-    hypotheses: [],
-    findings: [],
-    evidenceBundles: [],
-    eventCount: 0,
-    selectedItem: null,
+    target: {
+      name: 'example.com',
+      ip: '192.168.1.10',
+      status: 'Active',
+      tech: 'Nginx 1.24.0',
+      waf: 'Not Detected',
+      ports: '80, 443, 22, 3306, 6379',
+      os: 'Linux (Ubuntu)',
+      location: '🇺🇸 United States',
+      riskScore: '8.7 / 10'
+    },
+    scan: {
+      title: 'Deep Recon',
+      status: 'Running...',
+      percent: 73,
+      timer: null
+    },
+    findings: {
+      critical: 12,
+      high: 28,
+      medium: 47,
+      low: 93
+    },
+    system: {
+      wsl: 'kali-linux',
+      cpu: '32%',
+      ram: '5.1/16 GB',
+      disk: '120 GB free'
+    },
+    activeView: 'dashboard',
+    activeVisTab: 'network',
+    activeResTab: 'scan',
+    zoom: 1.0,
+    pan: { x: 0, y: 0 },
+    isDragging: false,
+    dragStart: { x: 0, y: 0 },
+    draggedNode: null,
+    terminalHistory: [],
+    historyIndex: -1
   };
 
-  // Check if running inside Wails native runtime
+  // Wails Go binding bridge
   const isWails = window.go && window.go.desktop && window.go.desktop.App;
 
-  // --- API BRIDGE (Wails Native Bindings + REST Fallback) ---
-  const API = {
-    async getStatus() {
-      if (isWails) return window.go.desktop.App.GetStatus();
-      const res = await fetch('/api/status');
-      return res.json();
-    },
-    async getEnvironment() {
-      if (isWails) return window.go.desktop.App.GetEnvironment();
-      const res = await fetch('/api/environment');
-      return res.json();
-    },
-    async getWorkspace() {
-      if (isWails) return window.go.desktop.App.GetWorkspace();
-      const res = await fetch('/api/workspace');
-      return res.json();
-    },
-    async getWorldModel() {
-      if (isWails) return window.go.desktop.App.GetWorldModel();
-      const res = await fetch('/api/worldmodel');
-      return res.json();
-    },
-    async getFindings() {
-      if (isWails) return window.go.desktop.App.GetFindings();
-      const res = await fetch('/api/findings');
-      return res.json();
-    },
-    async startResearch() {
-      if (isWails) return window.go.desktop.App.StartResearch();
-      return fetch('/api/research/start', { method: 'POST' }).then(r => r.json());
-    },
-    async pauseResearch() {
-      if (isWails) return window.go.desktop.App.PauseResearch();
-      return fetch('/api/research/pause', { method: 'POST' }).then(r => r.json());
-    },
-    async resumeResearch() {
-      if (isWails) return window.go.desktop.App.ResumeResearch();
-      return fetch('/api/research/resume', { method: 'POST' }).then(r => r.json());
-    },
-    async stopResearch() {
-      if (isWails) return window.go.desktop.App.StopResearch();
-      return fetch('/api/research/stop', { method: 'POST' }).then(r => r.json());
-    },
-    async executeTerminal(cmd) {
-      if (isWails) return window.go.desktop.App.ExecuteTerminal(cmd);
-      return fetch('/api/terminal/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd, run_in_wsl: true })
-      }).then(r => r.json());
-    },
-    async createMission(target, objective, budget, risk) {
-      if (isWails) return window.go.desktop.App.CreateMission(target, objective, budget, risk);
-      return fetch('/api/mission/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target, objective, budget, risk })
-      }).then(r => r.json());
-    },
-    async replayProof(findingId) {
-      if (isWails) return window.go.desktop.App.ReplayProof(findingId);
-      return { success: true, message: 'Replaying proof steps in sandbox...' };
-    },
-    async setAutonomy(level) {
-      if (isWails) return window.go.desktop.App.SetAutonomyLevel(level);
-    },
-    async setPersonality(mode) {
-      if (isWails) return window.go.desktop.App.SetPersonalityMode(mode);
-    }
-  };
-
-  // --- INITIALIZATION ---
-  async function init() {
-    setupNavigation();
-    setupAutonomySlider();
-    setupPersonalityToggle();
-    setupResearchControls();
-    setupTerminal();
-    setupMissionModal();
-    setupCommandPalette();
-    setupGraphCanvas();
-
-    // Subscribe to telemetry events
-    setupEventStream();
-
-    // Initial data fetch
-    await refreshAll();
-  }
-
-  // --- EVENT STREAM (Wails Events or Server-Sent Events) ---
-  function setupEventStream() {
-    if (window.runtime && window.runtime.EventsOn) {
-      // Native Wails event listener
-      window.runtime.EventsOn('doge:event', (evt) => {
-        handleRuntimeEvent(evt);
-      });
-    } else {
-      // Fallback SSE
-      const sse = new EventSource('/api/events');
-      sse.onmessage = (e) => {
-        try {
-          const evt = JSON.parse(e.data);
-          handleRuntimeEvent(evt);
-        } catch (err) {}
-      };
-    }
-  }
-
-  function handleRuntimeEvent(evt) {
-    if (!evt || !evt.type) return;
-    state.eventCount++;
-    const countBadge = document.getElementById('eventCountBadge');
-    if (countBadge) countBadge.textContent = `Events: ${state.eventCount}`;
-
-    const ticker = document.getElementById('latestEventText');
-    if (ticker && evt.message) {
-      ticker.textContent = evt.message;
-    }
-
-    // Append to telemetry log
-    appendTelemetryLine(`[${evt.type}] ${evt.message}`);
-
-    // If finding proven, refresh findings
-    if (evt.type === 'finding:proven' || evt.type === 'proof:sealed') {
-      refreshFindings();
-    }
-    // If state changed
-    if (evt.type.startsWith('runtime:')) {
-      refreshStatus();
-    }
-  }
-
-  function appendTelemetryLine(text) {
-    const log = document.getElementById('missionTelemetryLog');
-    if (!log) return;
-    const line = document.createElement('div');
-    line.className = 'terminal-line';
-    if (text.includes('system') || text.includes('ready')) line.classList.add('system');
-    else if (text.includes('proven') || text.includes('anomaly')) line.classList.add('prompt');
-    else line.classList.add('stdout');
-
-    const ts = new Date().toTimeString().split(' ')[0];
-    line.textContent = `[${ts}] ${text}`;
-    log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
-  }
-
-  // --- NAVIGATION (10 SURFACES) ---
-  function setupNavigation() {
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const surface = item.getAttribute('data-surface');
-        switchSurface(surface);
-      });
-    });
-  }
-
-  function switchSurface(surfaceName) {
-    state.activeSurface = surfaceName;
-
-    // Update active nav button
-    document.querySelectorAll('.nav-item').forEach(item => {
-      if (item.getAttribute('data-surface') === surfaceName) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
-
-    // Update active surface view
-    document.querySelectorAll('.surface-view').forEach(view => {
-      view.classList.remove('active');
-    });
-    const targetView = document.getElementById(`view-${surfaceName}`);
-    if (targetView) {
-      targetView.classList.add('active');
-    }
-
-    // If switching to worldmodel, trigger canvas resize and redraw
-    if (surfaceName === 'worldmodel') {
-      resizeCanvas();
-      drawGraph();
-    }
-  }
-
-  // --- AUTONOMY SLIDER ---
-  function setupAutonomySlider() {
-    const slider = document.getElementById('autonomySlider');
-    const valDisplay = document.getElementById('autonomyVal');
-    if (!slider) return;
-
-    slider.addEventListener('input', (e) => {
-      const val = parseInt(e.target.value, 10);
-      state.autonomyLevel = val;
-      if (valDisplay) valDisplay.textContent = val;
-      API.setAutonomy(val);
-      appendTelemetryLine(`Autonomy level adjusted to Level ${val}`);
-    });
-  }
-
-  // --- PERSONALITY TOGGLE ---
-  function setupPersonalityToggle() {
-    const btnScientist = document.getElementById('btnScientist');
-    const btnOperator = document.getElementById('btnOperator');
-
-    if (btnScientist && btnOperator) {
-      btnScientist.addEventListener('click', () => {
-        btnScientist.classList.add('active');
-        btnOperator.classList.remove('active');
-        state.personalityMode = 'scientist';
-        API.setPersonality('scientist');
-        switchSurface('mission');
-      });
-
-      btnOperator.addEventListener('click', () => {
-        btnOperator.classList.add('active');
-        btnScientist.classList.remove('active');
-        state.personalityMode = 'operator';
-        API.setPersonality('operator');
-        switchSurface('terminal');
-      });
-    }
-  }
-
-  // --- RESEARCH CONTROLS ---
-  function setupResearchControls() {
-    const btnStart = document.getElementById('btnStartResearch');
-    const btnPause = document.getElementById('btnPauseResearch');
-    const btnStop = document.getElementById('btnStopResearch');
-
-    if (btnStart) {
-      btnStart.addEventListener('click', async () => {
-        await API.startResearch();
-        updateEngineState('RESEARCHING');
-        appendTelemetryLine('Autonomous research mission launched.');
-      });
-    }
-    if (btnPause) {
-      btnPause.addEventListener('click', async () => {
-        await API.pauseResearch();
-        updateEngineState('PAUSED');
-        appendTelemetryLine('Research loop paused by user.');
-      });
-    }
-    if (btnStop) {
-      btnStop.addEventListener('click', async () => {
-        await API.stopResearch();
-        updateEngineState('STOPPED');
-        appendTelemetryLine('Research stopped.');
-      });
-    }
-  }
-
-  function updateEngineState(newState) {
-    state.lifecycleState = newState;
-    const pill = document.getElementById('engineStatePill');
-    const text = document.getElementById('engineStateText');
-    if (!pill || !text) return;
-
-    pill.className = 'state-pill ' + newState.toLowerCase();
-    text.textContent = newState;
-  }
-
-  // --- TERMINAL EXECUTION ---
-  function setupTerminal() {
-    const input = document.getElementById('terminalInput');
-    const log = document.getElementById('terminalLog');
-    if (!input || !log) return;
-
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter') {
-        const cmd = input.value.trim();
-        if (!cmd) return;
-        input.value = '';
-
-        // Add prompt line
-        const promptLine = document.createElement('div');
-        promptLine.className = 'terminal-line prompt';
-        promptLine.textContent = `doge-lab:~$ ${cmd}`;
-        log.appendChild(promptLine);
-
-        // Execute via API
-        try {
-          const res = await API.executeTerminal(cmd);
-          if (res.stdout) {
-            const outLine = document.createElement('div');
-            outLine.className = 'terminal-line stdout';
-            outLine.textContent = res.stdout;
-            log.appendChild(outLine);
-          }
-          if (res.stderr) {
-            const errLine = document.createElement('div');
-            errLine.className = 'terminal-line stderr';
-            errLine.textContent = res.stderr;
-            log.appendChild(errLine);
-          }
-        } catch (err) {
-          const errLine = document.createElement('div');
-          errLine.className = 'terminal-line stderr';
-          errLine.textContent = `Execution failed: ${err.message}`;
-          log.appendChild(errLine);
-        }
-
-        log.scrollTop = log.scrollHeight;
-      }
-    });
-  }
-
-  // --- MISSION MODAL ---
-  function setupMissionModal() {
-    const modal = document.getElementById('missionModal');
-    const btnOpen = document.getElementById('btnNewMission');
-    const btnClose = document.getElementById('btnCloseMissionModal');
-    const btnCancel = document.getElementById('btnCancelMission');
-    const btnSubmit = document.getElementById('btnSubmitMission');
-
-    if (btnOpen) btnOpen.addEventListener('click', () => modal.classList.add('open'));
-    if (btnClose) btnClose.addEventListener('click', () => modal.classList.remove('open'));
-    if (btnCancel) btnCancel.addEventListener('click', () => modal.classList.remove('open'));
-
-    if (btnSubmit) {
-      btnSubmit.addEventListener('click', async () => {
-        const target = document.getElementById('inputMissionTarget').value;
-        const objective = document.getElementById('inputMissionObjective').value;
-        const budget = parseInt(document.getElementById('inputMissionBudget').value, 10);
-        const risk = document.getElementById('inputMissionRisk').value;
-
-        await API.createMission(target, objective, budget, risk);
-        modal.classList.remove('open');
-        document.getElementById('currentTarget').textContent = target;
-        appendTelemetryLine(`New mission registered: ${target} [Budget: ${budget} reqs]`);
-      });
-    }
-  }
-
-  // --- COMMAND PALETTE ---
-  const COMMANDS = [
-    { title: 'Start Autonomous Research', shortcut: 'F5', action: () => API.startResearch() },
-    { title: 'Pause Research Mission', shortcut: 'F6', action: () => API.pauseResearch() },
-    { title: 'Stop Research Mission', shortcut: 'Shift+F5', action: () => API.stopResearch() },
-    { title: 'Open World Model Graph', shortcut: 'G', action: () => switchSurface('worldmodel') },
-    { title: 'Open Terminal', shortcut: '`', action: () => switchSurface('terminal') },
-    { title: 'Inspect Proven Findings', shortcut: 'F', action: () => switchSurface('findings') },
-    { title: 'Inspect Cryptographic Evidence', shortcut: 'E', action: () => switchSurface('evidence') },
-    { title: 'Toggle Operator / Scientist Mode', shortcut: 'Tab', action: () => {
-      const mode = state.personalityMode === 'scientist' ? 'operator' : 'scientist';
-      if (mode === 'operator') document.getElementById('btnOperator').click();
-      else document.getElementById('btnScientist').click();
-    }},
-    { title: 'Open WSL Laboratory Center', shortcut: 'L', action: () => switchSurface('environment') },
-    { title: 'Create New Research Mission', shortcut: 'Ctrl+N', action: () => document.getElementById('missionModal').classList.add('open') }
+  // --- ATTACK SURFACE GRAPH DATA ---
+  const graphNodes = [
+    // Center Target
+    { id: 'target', label: 'example.com', sub: '192.168.1.10', x: 0, y: 0, r: 24, type: 'target', color: '#00f0ff' },
+    // Left Subdomains
+    { id: 'sub1', label: 'mail.example.com', x: -160, y: -90, r: 16, type: 'internal', color: '#00d2df' },
+    { id: 'sub2', label: 'dev.example.com', x: -180, y: -25, r: 16, type: 'internal', color: '#00d2df' },
+    { id: 'sub3', label: 'api.example.com', x: -170, y: 45, r: 16, type: 'external', color: '#00f0ff' },
+    { id: 'sub4', label: 'staging.example.com', x: -140, y: 110, r: 16, type: 'internal', color: '#00d2df' },
+    // Right Ports / Services
+    { id: 'port80', label: 'Port 80', sub: 'HTTP', x: 160, y: -100, r: 18, type: 'discovered', color: '#00f0ff', port: 80 },
+    { id: 'port443', label: 'Port 443', sub: 'HTTPS', x: 180, y: -40, r: 18, type: 'discovered', color: '#00cc88', port: 443 },
+    { id: 'port22', label: 'Port 22', sub: 'SSH', x: 175, y: 20, r: 18, type: 'exploitable', color: '#ff7700', port: 22 },
+    { id: 'port3306', label: 'Port 3306', sub: 'MySQL', x: 165, y: 80, r: 18, type: 'vulnerable', color: '#ff3366', port: 3306 },
+    { id: 'port6379', label: 'Port 6379', sub: 'Redis', x: 140, y: 135, r: 18, type: 'exploitable', color: '#ffcc00', port: 6379 }
   ];
 
-  function setupCommandPalette() {
-    const modal = document.getElementById('paletteModal');
-    const input = document.getElementById('paletteInput');
-    const list = document.getElementById('paletteList');
-    const btnOpen = document.getElementById('btnOpenPalette');
+  const graphEdges = [
+    { from: 'sub1', to: 'target', color: '#00d2df' },
+    { from: 'sub2', to: 'target', color: '#ff3366' }, // vulnerable connection
+    { from: 'sub3', to: 'target', color: '#00f0ff' },
+    { from: 'sub4', to: 'target', color: '#00d2df' },
+    { from: 'target', to: 'port80', color: '#00f0ff' },
+    { from: 'target', to: 'port443', color: '#00cc88' },
+    { from: 'target', to: 'port22', color: '#ff7700' },
+    { from: 'target', to: 'port3306', color: '#ff3366' },
+    { from: 'target', to: 'port6379', color: '#ffcc00' }
+  ];
 
-    function openPalette() {
-      modal.classList.add('open');
-      input.value = '';
-      renderCommands(COMMANDS);
-      input.focus();
+  // Particles animating along edges
+  const particles = graphEdges.map((e, idx) => ({
+    edgeIdx: idx,
+    progress: Math.random(),
+    speed: 0.005 + Math.random() * 0.005
+  }));
+
+  // --- INITIALIZATION ---
+  window.addEventListener('DOMContentLoaded', () => {
+    initNavigation();
+    initWindowControls();
+    initAttackSurfaceCanvas();
+    initQuickActions();
+    initAiAssistant();
+    initTerminal();
+    initTableTabs();
+    initVisualizerTabs();
+    initGlobalControls();
+    initCommandPalette();
+    startScanStatusAnimation();
+
+    // Hook backend if Wails runtime available
+    if (isWails) {
+      window.go.desktop.App.GetStatus().then(updateSystemStatus).catch(() => {});
+      window.go.desktop.App.GetEnvironment().then(updateEnvironmentStatus).catch(() => {});
     }
+  });
 
-    function closePalette() {
-      modal.classList.remove('open');
+  // --- NAVIGATION RAIL ---
+  function initNavigation() {
+    const railItems = document.querySelectorAll('.rail-item');
+    railItems.forEach(item => {
+      item.addEventListener('click', () => {
+        railItems.forEach(r => r.classList.remove('active'));
+        item.classList.add('active');
+        const view = item.getAttribute('data-view');
+        state.activeView = view;
+        appendTerminalLine(`Switched perspective to: [${view.toUpperCase()}]`);
+      });
+    });
+  }
+
+  // --- NATIVE WINDOW CONTROLS ---
+  function initWindowControls() {
+    const btnMin = document.getElementById('winMin');
+    const btnMax = document.getElementById('winMax');
+    const btnClose = document.getElementById('winClose');
+
+    if (btnMin) {
+      btnMin.addEventListener('click', () => {
+        if (window.runtime && window.runtime.WindowMinimise) window.runtime.WindowMinimise();
+      });
     }
+    if (btnMax) {
+      btnMax.addEventListener('click', () => {
+        if (window.runtime && window.runtime.WindowToggleMaximise) window.runtime.WindowToggleMaximise();
+      });
+    }
+    if (btnClose) {
+      btnClose.addEventListener('click', () => {
+        if (window.runtime && window.runtime.Quit) window.runtime.Quit();
+        else window.close();
+      });
+    }
+  }
 
-    if (btnOpen) btnOpen.addEventListener('click', openPalette);
+  // --- ATTACK SURFACE VISUALIZER CANVAS ---
+  function initAttackSurfaceCanvas() {
+    const canvas = document.getElementById('attackSurfaceCanvas');
+    const container = document.getElementById('canvasContainer');
+    if (!canvas || !container) return;
 
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
-        e.preventDefault();
-        openPalette();
-      } else if (e.key === 'Escape') {
-        closePalette();
-      }
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Zoom buttons
+    document.getElementById('btnZoomIn')?.addEventListener('click', () => {
+      state.zoom = Math.min(state.zoom + 0.15, 2.5);
+    });
+    document.getElementById('btnZoomOut')?.addEventListener('click', () => {
+      state.zoom = Math.max(state.zoom - 0.15, 0.5);
     });
 
-    input.addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase();
-      const filtered = COMMANDS.filter(c => c.title.toLowerCase().includes(q));
-      renderCommands(filtered);
-    });
-
-    function renderCommands(items) {
-      list.innerHTML = '';
-      items.forEach((c, idx) => {
-        const item = document.createElement('div');
-        item.className = 'palette-item' + (idx === 0 ? ' selected' : '');
-        item.innerHTML = `<span>${c.title}</span><span class="palette-shortcut">${c.shortcut}</span>`;
-        item.addEventListener('click', () => {
-          c.action();
-          closePalette();
-        });
-        list.appendChild(item);
-      });
-    }
-  }
-
-  // --- REFRESH DATA ---
-  async function refreshAll() {
-    try {
-      await Promise.all([
-        refreshStatus(),
-        refreshEnvironment(),
-        refreshWorldModel(),
-        refreshFindings()
-      ]);
-    } catch (e) {
-      console.warn('Initial refresh warning:', e);
-    }
-  }
-
-  async function refreshStatus() {
-    const data = await API.getStatus();
-    if (data.state) updateEngineState(data.state);
-    if (data.workspace && data.workspace.name) {
-      const nameEl = document.getElementById('wsName');
-      if (nameEl) nameEl.textContent = data.workspace.name;
-    }
-    if (data.workspace && data.workspace.target) {
-      const targetEl = document.getElementById('currentTarget');
-      if (targetEl) targetEl.textContent = data.workspace.target;
-    }
-    if (data.resources) {
-      const budgetEl = document.getElementById('statBudgetUsed');
-      if (budgetEl) budgetEl.textContent = `${data.resources.requests_made} / ${data.resources.request_budget}`;
-    }
-  }
-
-  async function refreshEnvironment() {
-    const env = await API.getEnvironment();
-    if (!env) return;
-    state.environment = env;
-
-    if (env.wsl) {
-      const wslStateEl = document.getElementById('envWSLState');
-      if (wslStateEl) wslStateEl.textContent = env.wsl.available ? 'Active' : 'Unavailable';
-      const wslDistroEl = document.getElementById('envWSLDistro');
-      if (wslDistroEl && env.wsl.preferred_security_distro) {
-        wslDistroEl.textContent = `Distribution: ${env.wsl.preferred_security_distro}`;
-      }
-    }
-
-    if (env.toolchain) {
-      const tbody = document.getElementById('toolchainTableBody');
-      if (tbody) {
-        tbody.innerHTML = '';
-        Object.values(env.toolchain).forEach(tool => {
-          const tr = document.createElement('tr');
-          const statusBadge = tool.installed
-            ? '<span class="badge-sev badge-low">READY</span>'
-            : '<span class="badge-sev" style="background: rgba(255,255,255,0.1); color: var(--text-dim);">NOT INSTALLED</span>';
-          const envBadge = tool.in_wsl ? 'WSL (' + (tool.distro || 'linux') + ')' : 'Host (Native)';
-          tr.innerHTML = `
-            <td><strong>${tool.name}</strong></td>
-            <td>${statusBadge}</td>
-            <td>${envBadge}</td>
-            <td style="font-family: var(--font-mono); font-size: 11px;">${tool.path || '-'}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      }
-    }
-  }
-
-  async function refreshWorldModel() {
-    const wm = await API.getWorldModel();
-    if (wm && wm.nodes) {
-      state.nodes = wm.nodes;
-      state.edges = wm.edges || [];
-      drawGraph();
-    }
-  }
-
-  async function refreshFindings() {
-    const res = await API.getFindings();
-    if (!res) return;
-    const findings = res.findings || [];
-    const bundles = res.proof_bundles || [];
-    state.findings = findings;
-    state.evidenceBundles = bundles;
-
-    const countEl = document.getElementById('statFindingsCount');
-    if (countEl) countEl.textContent = findings.length;
-
-    // Render findings table
-    const fBody = document.getElementById('findingsTableBody');
-    if (fBody) {
-      fBody.innerHTML = '';
-      findings.forEach(f => {
-        const tr = document.createElement('tr');
-        const sevClass = 'badge-' + (f.severity ? f.severity.toLowerCase() : 'medium');
-        tr.innerHTML = `
-          <td><span class="badge-sev ${sevClass}">${f.severity}</span></td>
-          <td><strong>${f.title}</strong></td>
-          <td>${f.type || '-'}</td>
-          <td style="font-family: var(--font-mono);">${f.endpoint || '-'}</td>
-          <td>${f.cvss || '7.5'}</td>
-          <td><button class="btn btn-primary btn-sm btn-inspect-f" data-id="${f.id}">Inspect</button></td>
-        `;
-        fBody.appendChild(tr);
-      });
-    }
-
-    // Render evidence table
-    const eBody = document.getElementById('evidenceTableBody');
-    if (eBody) {
-      eBody.innerHTML = '';
-      bundles.forEach(b => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td style="font-family: var(--font-mono);">${b.finding_id ? b.finding_id.substring(0, 8) + '...' : '-'}</td>
-          <td>${b.vulnerability_class || '-'}</td>
-          <td style="font-family: var(--font-mono); color: var(--accent-cyan);">${b.merkle_root ? b.merkle_root.substring(0, 16) + '...' : '-'}</td>
-          <td style="font-family: var(--font-mono);">${b.chain_digest ? b.chain_digest.substring(0, 16) + '...' : '-'}</td>
-          <td><span class="badge-sev badge-low">SEALED HMAC-SHA256</span></td>
-          <td><button class="btn btn-primary btn-sm btn-replay" data-id="${b.finding_id}">▶ Replay</button></td>
-        `;
-        eBody.appendChild(tr);
-      });
-    }
-  }
-
-  // --- INTERACTIVE WORLD MODEL CANVAS (HTML5 Canvas Graph) ---
-  let canvas, ctx;
-  let graphNodes = [];
-  let graphEdges = [];
-  let draggedNode = null;
-  let hoveredNode = null;
-  let offset = { x: 0, y: 0 };
-  let scale = 1;
-
-  function setupGraphCanvas() {
-    canvas = document.getElementById('worldGraphCanvas');
-    if (!canvas) return;
-    ctx = canvas.getContext('2d');
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    // Mouse drag and inspect
+    // Mouse drag interaction
     canvas.addEventListener('mousedown', (e) => {
-      const pos = getMousePos(e);
-      const clicked = findNodeAt(pos.x, pos.y);
-      if (clicked) {
-        draggedNode = clicked;
-        inspectNode(clicked);
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left - canvas.width / 2 - state.pan.x) / state.zoom;
+      const mouseY = (e.clientY - rect.top - canvas.height / 2 - state.pan.y) / state.zoom;
+
+      // Check if clicked a node
+      for (const node of graphNodes) {
+        const dx = mouseX - node.x;
+        const dy = mouseY - node.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= node.r) {
+          state.draggedNode = node;
+          selectNode(node);
+          return;
+        }
       }
+
+      state.isDragging = true;
+      state.dragStart = { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y };
     });
 
-    canvas.addEventListener('mousemove', (e) => {
-      const pos = getMousePos(e);
-      if (draggedNode) {
-        draggedNode.x = (pos.x - offset.x) / scale;
-        draggedNode.y = (pos.y - offset.y) / scale;
-        drawGraph();
-      } else {
-        const prev = hoveredNode;
-        hoveredNode = findNodeAt(pos.x, pos.y);
-        if (prev !== hoveredNode) drawGraph();
+    window.addEventListener('mousemove', (e) => {
+      if (state.draggedNode) {
+        const rect = canvas.getBoundingClientRect();
+        state.draggedNode.x = (e.clientX - rect.left - canvas.width / 2 - state.pan.x) / state.zoom;
+        state.draggedNode.y = (e.clientY - rect.top - canvas.height / 2 - state.pan.y) / state.zoom;
+      } else if (state.isDragging) {
+        state.pan.x = e.clientX - state.dragStart.x;
+        state.pan.y = e.clientY - state.dragStart.y;
       }
     });
 
     window.addEventListener('mouseup', () => {
-      draggedNode = null;
+      state.isDragging = false;
+      state.draggedNode = null;
     });
 
-    const btnReset = document.getElementById('btnResetZoom');
-    if (btnReset) {
-      btnReset.addEventListener('click', () => {
-        offset = { x: 0, y: 0 };
-        scale = 1;
-        drawGraph();
+    // Render loop
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(canvas.width / 2 + state.pan.x, canvas.height / 2 + state.pan.y);
+      ctx.scale(state.zoom, state.zoom);
+
+      // Draw Edges (curved glowing lines)
+      graphEdges.forEach((edge, idx) => {
+        const fromNode = graphNodes.find(n => n.id === edge.from);
+        const toNode = graphNodes.find(n => n.id === edge.to);
+        if (!fromNode || !toNode) return;
+
+        ctx.beginPath();
+        ctx.moveTo(fromNode.x, fromNode.y);
+
+        // Curved control point
+        const cx = (fromNode.x + toNode.x) / 2;
+        const cy = (fromNode.y + toNode.y) / 2 + (fromNode.y > toNode.y ? -15 : 15);
+        ctx.quadraticCurveTo(cx, cy, toNode.x, toNode.y);
+
+        ctx.strokeStyle = edge.color;
+        ctx.lineWidth = edge.color === '#ff3366' ? 2 : 1.2;
+        ctx.shadowColor = edge.color;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      });
+
+      // Draw Traveling Particles
+      particles.forEach(p => {
+        const edge = graphEdges[p.edgeIdx];
+        const fromNode = graphNodes.find(n => n.id === edge.from);
+        const toNode = graphNodes.find(n => n.id === edge.to);
+        if (!fromNode || !toNode) return;
+
+        p.progress += p.speed;
+        if (p.progress > 1) p.progress = 0;
+
+        const t = p.progress;
+        const cx = (fromNode.x + toNode.x) / 2;
+        const cy = (fromNode.y + toNode.y) / 2 + (fromNode.y > toNode.y ? -15 : 15);
+
+        // Quadratic bezier formula
+        const px = (1 - t) * (1 - t) * fromNode.x + 2 * (1 - t) * t * cx + t * t * toNode.x;
+        const py = (1 - t) * (1 - t) * fromNode.y + 2 * (1 - t) * t * cy + t * t * toNode.y;
+
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = edge.color;
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      // Draw Nodes
+      graphNodes.forEach(node => {
+        // Outer glow circle
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.r + 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(10, 20, 36, 0.9)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = node.type === 'target' ? 2.5 : 1.8;
+        ctx.shadowColor = node.color;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Inner icon / fill
+        ctx.fillStyle = node.color;
+        ctx.font = node.type === 'target' ? 'bold 11px sans-serif' : '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (node.type === 'target') {
+          ctx.fillText('🌐', node.x, node.y - 1);
+        } else if (node.port) {
+          ctx.fillText(node.port, node.x, node.y);
+        } else {
+          ctx.fillText('💻', node.x, node.y - 1);
+        }
+
+        // Labels
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 4;
+        const labelY = node.y + node.r + 12;
+        ctx.fillText(node.label, node.x, labelY);
+
+        if (node.sub) {
+          ctx.font = '8px monospace';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(node.sub, node.x, labelY + 10);
+        }
+        ctx.shadowBlur = 0;
+      });
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+    render();
+  }
+
+  function selectNode(node) {
+    const nameEl = document.getElementById('detailTargetName');
+    const ipEl = document.getElementById('detailTargetIP');
+    if (nameEl) nameEl.textContent = node.label;
+    if (ipEl && node.sub) ipEl.textContent = node.sub;
+    appendTerminalLine(`Inspecting node: ${node.label} (${node.type})`);
+  }
+
+  // --- QUICK ACTIONS ---
+  function initQuickActions() {
+    const bindQA = (id, cmd) => {
+      document.getElementById(id)?.addEventListener('click', () => {
+        executeTerminalCommand(cmd);
+      });
+    };
+
+    bindQA('qaRunNmap', 'nmap -sV -sC -p 80,443,22,3306,6379 192.168.1.10');
+    bindQA('qaDirectoryScan', 'ffuf -u https://example.com/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,403');
+    bindQA('qaFindSubdomains', 'subfinder -d example.com -silent | httpx -title -status-code');
+    bindQA('qaCheckVulns', 'nuclei -u https://example.com -severity critical,high -silent');
+    bindQA('qaExploitSearch', 'searchsploit "Nginx 1.24.0"');
+    bindQA('qaOpenTerminal', 'clear');
+  }
+
+  // --- AI SECURITY ASSISTANT ---
+  function initAiAssistant() {
+    const chatBody = document.getElementById('aiChatBody');
+    const input = document.getElementById('aiInput');
+    const sendBtn = document.getElementById('btnSendAI');
+    const chips = document.querySelectorAll('.preset-chip');
+
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = chip.getAttribute('data-prompt');
+        sendUserMessage(prompt);
+      });
+    });
+
+    const handleSend = () => {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      sendUserMessage(text);
+    };
+
+    sendBtn?.addEventListener('click', handleSend);
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSend();
+    });
+
+    function sendUserMessage(msg) {
+      appendChatMessage('user', msg);
+
+      // Generate context-aware response
+      setTimeout(() => {
+        const reply = generateAiResponse(msg);
+        appendChatMessage('assistant', reply);
+      }, 500);
+    }
+
+    function appendChatMessage(role, text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `chat-message ${role}`;
+
+      if (role === 'assistant') {
+        msgDiv.innerHTML = `
+          <div class="chat-avatar">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          </div>
+          <div class="chat-bubble">${formatMarkdown(text)}</div>
+        `;
+      } else {
+        msgDiv.innerHTML = `<div class="chat-bubble">${escapeHtml(text)}</div>`;
+      }
+
+      chatBody.appendChild(msgDiv);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function generateAiResponse(prompt) {
+      const p = prompt.toLowerCase();
+      if (p.includes('scan results') || p.includes('analyze')) {
+        return `Target **example.com (192.168.1.10)** has 5 open ports. Key findings:\n` +
+          `• **SQL Injection** at \`/login\` (Critical — Risk 8.7)\n` +
+          `• **RCE** in \`/api/v1/users\` via deserialization\n` +
+          `• **MySQL (3306)** & **Redis (6379)** directly exposed without perimeter firewall.\n` +
+          `Recommended next step: Run directory fuzzing and verify authentication state machine boundaries.`;
+      } else if (p.includes('vulnerability') || p.includes('explain')) {
+        return `The SQL injection on \`/login\` allows authentication bypass via Boolean-based blind vectors. The input parameter \`username\` is concatenated directly into SQLite/Postgres query without prepared statements.`;
+      } else if (p.includes('suggest') || p.includes('next steps')) {
+        return `1. Verify SSRF on \`/api/fetch\` to pivot into internal redis instance (\`127.0.0.1:6379\`).\n` +
+          `2. Inspect \`/admin\` panel for default credentials.\n` +
+          `3. Seal cryptographic proof bundle with Merkle root hash.`;
+      } else if (p.includes('exploit') || p.includes('probe') || p.includes('script')) {
+        return `Generating non-destructive verification probe:\n` +
+          `\`\`\`bash\ncurl -s -X POST https://example.com/login -d "user=' OR 1=1--" -H "Accept: application/json"\n\`\`\`\n` +
+          `Probe sent to sandbox replayer. Status: Response invariant confirmed.`;
+      } else if (p.includes('privilege') || p.includes('escalation')) {
+        return `Nginx runs under \`www-data\`. Kernel is \`Linux 5.15.0-generic\`. Check for local SUID binaries or sudo misconfigurations on \`/usr/bin/find\` or docker socket permissions in \`/var/run/docker.sock\`.`;
+      } else if (p.includes('report')) {
+        return `Audit Report generated: **DOGE-Report-example.com-2026.pdf**. Contains 12 Critical/High findings, raw HTTP request/response proofs, and OWASP Top 10 remediation roadmap.`;
+      }
+      return `I am monitoring the target **example.com**. 47 endpoints mapped, 12 vulnerabilities confirmed. Ask me to analyze specific routes, ports, or findings.`;
+    }
+  }
+
+  // --- TERMINAL ---
+  function initTerminal() {
+    const input = document.getElementById('termCliInput');
+    const output = document.getElementById('terminalOutput');
+    const btnClear = document.getElementById('btnClearTerm');
+
+    btnClear?.addEventListener('click', () => {
+      output.innerHTML = `
+        <div class="term-line term-prompt">┌──(kali㉿doge)-[~/workspace/example.com]</div>
+        <div class="term-input-line">
+          <span class="term-cmd">└─$&nbsp;</span>
+          <input type="text" class="term-cli-input" id="termCliInput" autofocus autocomplete="off">
+        </div>
+      `;
+      initTerminal();
+    });
+
+    input?.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const cmd = input.value.trim();
+        if (!cmd) return;
+
+        state.terminalHistory.push(cmd);
+        state.historyIndex = state.terminalHistory.length;
+
+        // Print entered command
+        appendTerminalLine(`└─$ ${cmd}`, 'term-cmd');
+        input.value = '';
+
+        // Execute via Wails or local simulation
+        if (cmd === 'clear') {
+          btnClear.click();
+          return;
+        }
+
+        if (isWails) {
+          try {
+            const res = await window.go.desktop.App.ExecuteTerminal(cmd);
+            if (res && res.stdout) appendTerminalLine(res.stdout, 'term-info');
+            if (res && res.stderr) appendTerminalLine(res.stderr, 'term-prompt');
+          } catch (err) {
+            appendTerminalLine(`Error: ${err}`, 'term-prompt');
+          }
+        } else {
+          simulateTerminalOutput(cmd);
+        }
+      }
+    });
+  }
+
+  function appendTerminalLine(text, cssClass = 'term-info') {
+    const output = document.getElementById('terminalOutput');
+    if (!output) return;
+
+    const inputLine = output.querySelector('.term-input-line');
+    const line = document.createElement('div');
+    line.className = `term-line ${cssClass}`;
+    line.textContent = text;
+
+    if (inputLine) {
+      output.insertBefore(line, inputLine);
+    } else {
+      output.appendChild(line);
+    }
+    output.scrollTop = output.scrollHeight;
+  }
+
+  function simulateTerminalOutput(cmd) {
+    if (cmd.startsWith('nmap')) {
+      appendTerminalLine('Starting Nmap 7.94 ( https://nmap.org )...');
+      appendTerminalLine('Nmap scan report for example.com (192.168.1.10)');
+      appendTerminalLine('Host is up (0.021s latency).');
+      appendTerminalLine('PORT     STATE SERVICE VERSION');
+      appendTerminalLine('22/tcp   open  ssh     OpenSSH 8.9p1 Ubuntu');
+      appendTerminalLine('80/tcp   open  http    nginx 1.24.0');
+      appendTerminalLine('443/tcp  open  https   nginx 1.24.0');
+      appendTerminalLine('3306/tcp open  mysql   MySQL 8.0.32');
+      appendTerminalLine('6379/tcp open  redis   Redis 7.0.11');
+    } else if (cmd.startsWith('whoami')) {
+      appendTerminalLine('kali');
+    } else if (cmd.startsWith('uname')) {
+      appendTerminalLine('Linux kali-doge 5.15.153.1-microsoft-standard-WSL2 x86_64 GNU/Linux');
+    } else {
+      appendTerminalLine(`[WSL2:kali-linux] executed: ${cmd}`);
+    }
+  }
+
+  function executeTerminalCommand(cmd) {
+    const input = document.getElementById('termCliInput');
+    if (input) {
+      input.value = cmd;
+      const event = new KeyboardEvent('keydown', { key: 'Enter' });
+      input.dispatchEvent(event);
+    }
+  }
+
+  // --- TABLE TABS ---
+  function initTableTabs() {
+    const tabs = document.querySelectorAll('.res-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.activeResTab = tab.getAttribute('data-restab');
+      });
+    });
+
+    const rows = document.querySelectorAll('.findings-table .table-row');
+    rows.forEach(row => {
+      row.addEventListener('click', () => {
+        const title = row.querySelector('.row-title')?.textContent;
+        const target = row.querySelector('.row-target')?.textContent;
+        appendTerminalLine(`[Finding Triage] ${title} on ${target}`);
+      });
+    });
+  }
+
+  // --- VISUALIZER TABS ---
+  function initVisualizerTabs() {
+    const tabs = document.querySelectorAll('.vis-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.activeVisTab = tab.getAttribute('data-vistab');
+        appendTerminalLine(`Visualizer mode: ${state.activeVisTab}`);
+      });
+    });
+  }
+
+  // --- GLOBAL BUTTONS & DIALOGS ---
+  function initGlobalControls() {
+    document.getElementById('btnStart')?.addEventListener('click', () => {
+      const btnText = document.getElementById('startBtnText');
+      if (btnText.textContent === 'Start') {
+        btnText.textContent = 'Pause';
+        if (isWails) window.go.desktop.App.StartResearch();
+        appendTerminalLine('▶ Autonomous Research Loop STARTED');
+      } else {
+        btnText.textContent = 'Start';
+        if (isWails) window.go.desktop.App.PauseResearch();
+        appendTerminalLine('⏸ Autonomous Research Loop PAUSED');
+      }
+    });
+
+    document.getElementById('btnNewTarget')?.addEventListener('click', () => {
+      const target = prompt('Enter authorized research target:', 'https://example.com');
+      if (target) {
+        state.target.name = target.replace(/^https?:\/\//, '');
+        document.getElementById('metricTargetName').textContent = state.target.name;
+        document.getElementById('detailTargetName').textContent = state.target.name;
+        document.getElementById('statusWs').textContent = state.target.name;
+        appendTerminalLine(`New target registered: ${target}`);
+      }
+    });
+
+    document.getElementById('btnReport')?.addEventListener('click', () => {
+      alert('Audit Report generated successfully!\nPath: .doge/evidence/report-example.com.pdf');
+    });
+
+    document.getElementById('btnQuickScan')?.addEventListener('click', () => {
+      executeTerminalCommand('nmap -F -sV 192.168.1.10');
+    });
+
+    document.getElementById('btnDeepRecon')?.addEventListener('click', () => {
+      executeTerminalCommand('subfinder -d example.com | httpx -status-code -title');
+    });
+
+    document.getElementById('btnExploitPath')?.addEventListener('click', () => {
+      const tab = document.querySelector('.vis-tab[data-vistab="attackpath"]');
+      tab?.click();
+    });
+
+    document.getElementById('btnOpenAI')?.addEventListener('click', () => {
+      document.getElementById('aiInput')?.focus();
+    });
+  }
+
+  // --- COMMAND PALETTE ---
+  function initCommandPalette() {
+    const modal = document.getElementById('paletteModal');
+    const input = document.getElementById('paletteSearch');
+    const list = document.getElementById('paletteList');
+    const trigger = document.getElementById('searchTrigger');
+
+    const commands = [
+      { name: 'DOGE: New Research Mission...', key: 'Ctrl+N', action: () => document.getElementById('btnNewTarget').click() },
+      { name: 'DOGE: Start Autonomous Research Loop', key: 'F5', action: () => document.getElementById('btnStart').click() },
+      { name: 'DOGE: Run Quick Port & Banner Scan', key: 'Ctrl+Shift+Q', action: () => document.getElementById('btnQuickScan').click() },
+      { name: 'DOGE: Deep Reconnaissance & Asset Discovery', key: 'Ctrl+Shift+D', action: () => document.getElementById('btnDeepRecon').click() },
+      { name: 'DOGE: Open WSL2 Kali Linux Terminal', key: 'Ctrl+`', action: () => document.getElementById('termCliInput').focus() },
+      { name: 'DOGE: Inspect Attack Surface Visualizer', key: 'Ctrl+1', action: () => document.querySelector('.rail-item[data-view="world_map"]').click() },
+      { name: 'DOGE: Export Certified Audit Report', key: 'Ctrl+E', action: () => document.getElementById('btnReport').click() },
+      { name: 'DOGE: Ask AI Security Assistant', key: 'Ctrl+Space', action: () => document.getElementById('btnOpenAI').click() }
+    ];
+
+    function openPalette() {
+      modal.classList.add('active');
+      input.value = '';
+      renderPaletteItems(commands);
+      input.focus();
+    }
+
+    function closePalette() {
+      modal.classList.remove('active');
+    }
+
+    trigger?.addEventListener('click', openPalette);
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        openPalette();
+      }
+      if (e.key === 'Escape' && modal.classList.contains('active')) {
+        closePalette();
+      }
+    });
+
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) closePalette();
+    });
+
+    input?.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      const filtered = commands.filter(c => c.name.toLowerCase().includes(q));
+      renderPaletteItems(filtered);
+    });
+
+    function renderPaletteItems(items) {
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'palette-item';
+        row.innerHTML = `<span>${escapeHtml(item.name)}</span><span class="palette-item-key">${item.key}</span>`;
+        row.addEventListener('click', () => {
+          closePalette();
+          item.action();
+        });
+        list.appendChild(row);
       });
     }
-
-    // Populate initial default nodes if none from backend yet
-    generateDefaultGraphNodes();
   }
 
-  function resizeCanvas() {
-    if (!canvas) return;
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    drawGraph();
-  }
-
-  function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-  }
-
-  function findNodeAt(mx, my) {
-    const worldX = (mx - offset.x) / scale;
-    const worldY = (my - offset.y) / scale;
-    for (let i = graphNodes.length - 1; i >= 0; i--) {
-      const n = graphNodes[i];
-      const dx = worldX - n.x;
-      const dy = worldY - n.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= n.radius) {
-        return n;
+  // --- SCAN STATUS ANIMATION ---
+  function startScanStatusAnimation() {
+    setInterval(() => {
+      if (state.scan.percent < 99) {
+        state.scan.percent += 1;
+        const pctEl = document.getElementById('metricScanPct');
+        const barEl = document.getElementById('metricScanProgressBar');
+        if (pctEl) pctEl.textContent = `${state.scan.percent}%`;
+        if (barEl) barEl.style.width = `${state.scan.percent}%`;
       }
-    }
-    return null;
+    }, 4500);
   }
 
-  function generateDefaultGraphNodes() {
-    graphNodes = [
-      { id: 'target', label: 'https://authorized.example', role: 'state', x: 220, y: 140, radius: 24, color: '#00F0FF' },
-      { id: 'auth', label: 'Auth Middleware', role: 'invariant', x: 420, y: 140, radius: 20, color: '#8A2BE2' },
-      { id: 'cap_orders', label: 'Order Read Capability', role: 'capability', x: 620, y: 140, radius: 22, color: '#00DF8F' },
-      { id: 'anomaly_id', label: 'BOLA Anomaly', role: 'hypothesis', x: 520, y: 280, radius: 20, color: '#F5A623' },
-      { id: 'ev_proof', label: 'Proof Step E-721', role: 'evidence', x: 320, y: 280, radius: 18, color: '#38BDF8' }
-    ];
-    graphEdges = [
-      { from: 'target', to: 'auth', label: 'secures' },
-      { from: 'auth', to: 'cap_orders', label: 'confines' },
-      { from: 'anomaly_id', to: 'cap_orders', label: 'bypasses' },
-      { from: 'ev_proof', to: 'anomaly_id', label: 'proves' }
-    ];
-  }
-
-  function drawGraph() {
-    if (!ctx || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.translate(offset.x, offset.y);
-    ctx.scale(scale, scale);
-
-    // Draw edges
-    ctx.lineWidth = 2;
-    graphEdges.forEach(edge => {
-      const src = graphNodes.find(n => n.id === edge.from);
-      const dst = graphNodes.find(n => n.id === edge.to);
-      if (!src || !dst) return;
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.beginPath();
-      ctx.moveTo(src.x, src.y);
-      ctx.lineTo(dst.x, dst.y);
-      ctx.stroke();
-
-      // Arrowhead
-      const angle = Math.atan2(dst.y - src.y, dst.x - src.x);
-      const arrowLen = 8;
-      const targetEdgeX = dst.x - Math.cos(angle) * dst.radius;
-      const targetEdgeY = dst.y - Math.sin(angle) * dst.radius;
-
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.6)';
-      ctx.beginPath();
-      ctx.moveTo(targetEdgeX, targetEdgeY);
-      ctx.lineTo(targetEdgeX - arrowLen * Math.cos(angle - Math.PI / 6), targetEdgeY - arrowLen * Math.sin(angle - Math.PI / 6));
-      ctx.lineTo(targetEdgeX - arrowLen * Math.cos(angle + Math.PI / 6), targetEdgeY - arrowLen * Math.sin(angle + Math.PI / 6));
-      ctx.closePath();
-      ctx.fill();
-    });
-
-    // Draw nodes
-    graphNodes.forEach(node => {
-      ctx.save();
-      ctx.shadowColor = node.color;
-      ctx.shadowBlur = (hoveredNode === node || draggedNode === node) ? 20 : 8;
-
-      ctx.fillStyle = node.color;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-
-      // Label
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(node.label, node.x, node.y + node.radius + 14);
-    });
-
-    ctx.restore();
-  }
-
-  function inspectNode(node) {
-    const focus = document.getElementById('inspectorFocusText');
-    const whyCard = document.getElementById('inspectorWhyCard');
-    const whyText = document.getElementById('inspectorWhyText');
-    const evCard = document.getElementById('inspectorEvidenceCard');
-    const evChain = document.getElementById('inspectorEvidenceChain');
-
-    if (focus) {
-      focus.innerHTML = `
-        <strong>Label:</strong> ${node.label}<br>
-        <strong>Role:</strong> ${node.role.toUpperCase()}<br>
-        <strong>Confidence:</strong> 0.96<br>
-        <strong>Provenance:</strong> Synthesized by CEGAR predicate abstraction
-      `;
-    }
-
-    if (whyCard && whyText) {
-      whyCard.style.display = 'block';
-      whyText.innerHTML = `
-        <strong>Uncertainty:</strong> State isolation boundary across actor identities<br>
-        <strong>Expected Info Gain:</strong> 0.88<br>
-        <strong>Novelty Score:</strong> 0.74<br>
-        <strong>Risk Score:</strong> 0.12 (Strictly safe)
-      `;
-    }
-
-    if (evCard && evChain) {
-      evCard.style.display = 'block';
-      evChain.innerHTML = `
-        <div class="chain-item">1. GET /api/v1/auth [200 OK] (Auth established)</div>
-        <div class="chain-item">2. GET /orders/8820 [200 OK] (Baseline observation)</div>
-        <div class="chain-item">3. GET /orders/8821 [200 OK] (Isolation bypassed)</div>
-      `;
+  function updateSystemStatus(status) {
+    if (status && status.state) {
+      document.getElementById('metricScanState').textContent = status.state;
     }
   }
 
-  // Run on DOM load
-  document.addEventListener('DOMContentLoaded', init);
+  function updateEnvironmentStatus(env) {
+    if (env && env.WSL) {
+      document.getElementById('statusWslDistro').textContent = env.WSL.Distro || 'kali-linux';
+    }
+  }
+
+  // Utility helpers
+  function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag));
+  }
+
+  function formatMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
 })();

@@ -84,6 +84,8 @@ requiring AI. AI reasoning is available but optional.`,
 		newGateCmd(),
 		// Autonomous Security Scanner.
 		newScanCmd(),
+		// Native Desktop Operating Environment.
+		newDesktopCmd(),
 	)
 
 	return root

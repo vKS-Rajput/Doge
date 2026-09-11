@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOGE — Security Research Operating Environment</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- TOP WORKSTATION BAR -->
+    <header class="top-bar">
+      <div class="brand-section">
+        <span class="logo-icon">◈</span>
+        <span class="brand-title">DOGE</span>
+        <div class="workspace-badge" id="wsBadge">
+          <span>WS:</span> <strong id="wsName">Acme Research</strong>
+        </div>
+        <div class="target-badge" id="targetBadge">
+          🎯 <span id="currentTarget">https://authorized.example</span>
+        </div>
+      </div>
+
+      <div class="center-controls">
+        <!-- AUTONOMY SLIDER -->
+        <div class="autonomy-control" title="Autonomy Level: 1 (Passive) to 5 (Full Bounded Mission Autonomy)">
+          <span class="autonomy-label">Autonomy</span>
+          <div class="slider-container">
+            <input type="range" id="autonomySlider" min="1" max="5" value="4" step="1">
+            <span class="autonomy-val" id="autonomyVal">4</span>
+          </div>
+        </div>
+
+        <!-- PERSONALITY TOGGLE -->
+        <div class="personality-toggle">
+          <button class="personality-btn active" id="btnScientist" data-mode="scientist">SCIENTIST</button>
+          <button class="personality-btn" id="btnOperator" data-mode="operator">OPERATOR</button>
+        </div>
+
+        <!-- ENGINE STATE PILL -->
+        <div class="state-pill ready" id="engineStatePill">
+          <span class="status-dot"></span>
+          <span id="engineStateText">READY</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnStartResearch">
+          ▶ START RESEARCH
+        </button>
+        <button class="btn" id="btnPauseResearch">
+          ⏸ PAUSE
+        </button>
+        <button class="btn btn-danger" id="btnStopResearch">
+          ⏹ STOP
+        </button>
+        <button class="btn" id="btnNewMission">
+          + NEW MISSION
+        </button>
+        <button class="btn" id="btnOpenPalette" title="Ctrl+Shift+P">
+          ⌘ PALETTE
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE STAGE -->
+    <div class="main-stage">
+      <!-- LEFT ACTIVITY BAR -->
+      <nav class="activity-bar">
+        <button class="nav-item active" data-surface="mission" title="Mission Overview">
+          <span class="nav-icon">🧭</span>
+          <span class="nav-label">Mission</span>
+        </button>
+        <button class="nav-item" data-surface="surface" title="Target Surface">
+          <span class="nav-icon">🌐</span>
+          <span class="nav-label">Surface</span>
+        </button>
+        <button class="nav-item" data-surface="research" title="Research Frontier">
+          <span class="nav-icon">🧠</span>
+          <span class="nav-label">Research</span>
+        </button>
+        <button class="nav-item" data-surface="worldmodel" title="World Model Graph">
+          <span class="nav-icon">🕸</span>
+          <span class="nav-label">World</span>
+        </button>
+        <button class="nav-item" data-surface="experiments" title="Experiments & Strategies">
+          <span class="nav-icon">🧪</span>
+          <span class="nav-label">Probes</span>
+        </button>
+        <button class="nav-item" data-surface="findings" title="Proven Findings">
+          <span class="nav-icon">🔬</span>
+          <span class="nav-label">Findings</span>
+        </button>
+        <button class="nav-item" data-surface="evidence" title="Cryptographic Evidence">
+          <span class="nav-icon">📜</span>
+          <span class="nav-label">Evidence</span>
+        </button>
+        <button class="nav-item" data-surface="benchmarks" title="Adversarial Benchmarks">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Bench</span>
+        </button>
+        <div class="activity-bar-spacer"></div>
+        <button class="nav-item" data-surface="terminal" title="WSL Laboratory Terminal">
+          <span class="nav-icon">💻</span>
+          <span class="nav-label">Terminal</span>
+        </button>
+        <button class="nav-item" data-surface="environment" title="Environment & WSL Center">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Lab</span>
+        </button>
+      </nav>
+
+      <!-- CENTRAL CONTENT AREA -->
+      <main class="content-area">
+        <!-- SURFACE 1: MISSION -->
+        <section class="surface-view active" id="view-mission">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-header">Target Surface</div>
+              <div class="stat-value" id="statEndpointsCount">47</div>
+              <div class="stat-subtitle">Observed endpoints & routes</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Active Frontier</div>
+              <div class="stat-value" id="statFrontierCount" style="color: var(--accent-cyan);">14</div>
+              <div class="stat-subtitle">Unexplored state invariants</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Hypotheses Tested</div>
+              <div class="stat-value" id="statHypothesesCount">28</div>
+              <div class="stat-subtitle">Epistemic version space</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Proven Findings</div>
+              <div class="stat-value" id="statFindingsCount" style="color: var(--accent-crimson);">3</div>
+              <div class="stat-subtitle">Cryptographically attested</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Request Budget</div>
+              <div class="stat-value" id="statBudgetUsed">342 / 5,000</div>
+              <div class="stat-subtitle">Governed by safety policy</div>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-title">MISSION CONTRACT & AUTONOMOUS RESEARCH OBJECTIVE</div>
+            <div class="detail-body" id="missionSummaryText">
+              Conducting algorithmic scientific security discovery against <strong>https://authorized.example</strong>. Exploring unknown state transitions, isolating authorization boundaries via causal interventions, and attesting provable flaws with zero false positives.
+            </div>
+          </div>
+
+          <div class="detail-card" style="flex: 1;">
+            <div class="detail-title">AUTONOMOUS RESEARCH ENGINE LOG & CAUSAL TELEMETRY</div>
+            <div class="terminal-logs" id="missionTelemetryLog" style="height: 320px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); padding: 10px;">
+              <div class="terminal-line system">[00:00:01] ◈ DOGE Operating Environment Kernel initialized</div>
+              <div class="terminal-line system">[00:00:02] WSL2 laboratory substrate detected: kali-linux</div>
+              <div class="terminal-line stdout">[00:00:04] Surface mapping: 47 endpoints registered in Unified World Model</div>
+              <div class="terminal-line system">[00:00:10] Research frontier identified 14 high-uncertainty state vertices</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SURFACE 2: SURFACE -->
+        <section class="surface-view" id="view-surface">
+          <div class="detail-title">DISCOVERED ATTACK SURFACE & ENDPOINTS</div>
+          <table class="data-table" id="surfaceTable">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>URL / Route</th>
+                <th>Status</th>
+                <th>Parameters</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="surfaceTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 3: RESEARCH -->
+        <section class="surface-view" id="view-research">
+          <div class="detail-title">ACTIVE RESEARCH FRONTIER & HYPOTHESIS VERSION SPACE</div>
+          <div class="stats-grid" style="margin-bottom: 16px;">
+            <div class="stat-card">
+              <div class="stat-header">High Uncertainty Vertices</div>
+              <div class="stat-value" id="frontierHigh">5</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Active Hypotheses</div>
+              <div class="stat-value" id="hypothesesActive">8</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Falsified Hypotheses</div>
+              <div class="stat-value" id="hypothesesFalsified">12</div>
+            </div>
+          </div>
+          <table class="data-table" id="hypothesesTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Category</th>
+                <th>Hypothesis Statement</th>
+                <th>Confidence</th>
+                <th>Epistemic Status</th>
+              </tr>
+            </thead>
+            <tbody id="hypothesesTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 4: WORLD MODEL -->
+        <section class="surface-view" id="view-worldmodel" style="padding: 10px; gap: 8px;">
+          <div class="graph-viewport">
+            <canvas id="worldGraphCanvas"></canvas>
+            <div class="graph-overlay-controls">
+              <button class="btn" id="btnResetZoom">⟲ Reset Zoom</button>
+              <button class="btn" id="btnLayoutGraph">⚡ Physics Layout</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- SURFACE 5: EXPERIMENTS -->
+        <section class="surface-view" id="view-experiments">
+          <div class="detail-title">PARETO SYNTHESIZED RESEARCH STRATEGY PROGRAMS</div>
+          <table class="data-table" id="experimentsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Strategy Name</th>
+                <th>Info Gain</th>
+                <th>Novelty</th>
+                <th>Risk Score</th>
+                <th>Req Cost</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="experimentsTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 6: FINDINGS -->
+        <section class="surface-view" id="view-findings">
+          <div class="detail-title">CONFIRMED SECURITY VULNERABILITIES (ZERO FALSE-POSITIVES)</div>
+          <table class="data-table" id="findingsTable">
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Endpoint</th>
+                <th>CVSS</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="findingsTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 7: EVIDENCE -->
+        <section class="surface-view" id="view-evidence">
+          <div class="detail-title">CRYPTOGRAPHIC PROOF BUNDLES & MERKLE LEDGERS</div>
+          <table class="data-table" id="evidenceTable">
+            <thead>
+              <tr>
+                <th>Finding ID</th>
+                <th>Vulnerability Class</th>
+                <th>Merkle Root</th>
+                <th>Chained Digest</th>
+                <th>Attestation Seal</th>
+                <th>Replay</th>
+              </tr>
+            </thead>
+            <tbody id="evidenceTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 8: BENCHMARKS -->
+        <section class="surface-view" id="view-benchmarks">
+          <div class="detail-title">ADVERSARIAL SCIENTIFIC BENCHMARK SUITE</div>
+          <table class="data-table" id="benchmarksTable">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Target Domain</th>
+                <th>Challenge Type</th>
+                <th>Ground Truth Vulnerability</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="benchmarksTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- SURFACE 9: TERMINAL -->
+        <section class="surface-view" id="view-terminal" style="padding: 10px;">
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <span>WSL2 KALI LABORATORY CONSOLE (RESEARCH-AWARE)</span>
+              <span>Bash / wsl.exe</span>
+            </div>
+            <div class="terminal-logs" id="terminalLog">
+              <div class="terminal-line system">◈ DOGE WSL2 Terminal Session Attached</div>
+              <div class="terminal-line system">Tool output is parsed automatically into World Model observations.</div>
+            </div>
+            <div class="terminal-input-row">
+              <span class="terminal-prompt-symbol">doge-lab:~$</span>
+              <input type="text" class="terminal-input" id="terminalInput" placeholder="Type Linux / offensive security command (e.g. nmap, httpx, ffuf)..." autocomplete="off">
+            </div>
+          </div>
+        </section>
+
+        <!-- SURFACE 10: ENVIRONMENT -->
+        <section class="surface-view" id="view-environment">
+          <div class="detail-title">ENVIRONMENT CENTER & MANAGED WSL SUBSTRATE</div>
+          <div class="stats-grid" style="margin-bottom: 16px;">
+            <div class="stat-card">
+              <div class="stat-header">WSL Substrate</div>
+              <div class="stat-value" id="envWSLState" style="color: var(--accent-emerald);">Active</div>
+              <div class="stat-subtitle" id="envWSLDistro">Distribution: kali-linux</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Go Core Engine</div>
+              <div class="stat-value" id="envGoVersion">v7.0.0</div>
+              <div class="stat-subtitle">Deterministic & Offline</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-header">Network Policy</div>
+              <div class="stat-value" style="color: var(--accent-amber);">Strict</div>
+              <div class="stat-subtitle">Authorized Hosts Only</div>
+            </div>
+          </div>
+
+          <div class="detail-title">LABORATORY TOOLCHAIN INVENTORY</div>
+          <table class="data-table" id="toolchainTable">
+            <thead>
+              <tr>
+                <th>Tool Name</th>
+                <th>Status</th>
+                <th>Execution Environment</th>
+                <th>Path</th>
+              </tr>
+            </thead>
+            <tbody id="toolchainTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </section>
+      </main>
+
+      <!-- RIGHT INSPECTOR DRAWER -->
+      <aside class="inspector-drawer">
+        <div class="inspector-header">
+          <span>RESEARCH INSPECTOR</span>
+          <span style="font-family: var(--font-mono); color: var(--accent-cyan);" id="inspectorType">PROVENANCE</span>
+        </div>
+        <div class="inspector-content" id="inspectorContent">
+          <div class="detail-card">
+            <div class="detail-title">CURRENT INVESTIGATION FOCUS</div>
+            <div class="detail-body" id="inspectorFocusText">
+              Select any graph node, hypothesis, experiment, or finding to inspect its mathematical provenance, causal relations, and decision rationale.
+            </div>
+          </div>
+
+          <div class="detail-card" id="inspectorWhyCard" style="display: none;">
+            <div class="detail-title" style="color: var(--accent-cyan);">WHY THIS EXPERIMENT?</div>
+            <div class="detail-body" id="inspectorWhyText"></div>
+          </div>
+
+          <div class="detail-card" id="inspectorEvidenceCard" style="display: none;">
+            <div class="detail-title">REPLAY EVIDENCE CHAIN</div>
+            <div class="evidence-chain-list" id="inspectorEvidenceChain"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- BOTTOM LIVE EVENT STREAM -->
+    <footer class="event-stream-bar">
+      <div class="event-ticker">
+        <span class="live-dot"></span>
+        <span>LIVE TELEMETRY:</span>
+        <span id="latestEventText">Runtime kernel ready. Awaiting research command.</span>
+      </div>
+      <div id="eventCountBadge" style="color: var(--text-muted);">Events: 0</div>
+    </footer>
+  </div>
+
+  <!-- MISSION BUILDER MODAL -->
+  <div class="modal-overlay" id="missionModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">START NEW SECURITY RESEARCH MISSION</span>
+        <button class="btn" id="btnCloseMissionModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Target URL / Base Scope</label>
+          <input type="text" class="form-input" id="inputMissionTarget" value="https://authorized.example">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Objective</label>
+          <input type="text" class="form-input" id="inputMissionObjective" value="Autonomous security research & property falsification">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Request Budget Ceiling</label>
+          <input type="number" class="form-input" id="inputMissionBudget" value="5000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Risk Tolerance (0.0 Safe - 1.0 Destructive)</label>
+          <input type="text" class="form-input" id="inputMissionRisk" value="0.60 (Conservative)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="btnCancelMission">Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitMission">LAUNCH MISSION</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMAND PALETTE MODAL -->
+  <div class="modal-overlay" id="paletteModal">
+    <div class="palette-box">
+      <div class="palette-input-wrapper">
+        <span style="color: var(--accent-cyan); margin-right: 10px; font-weight: 700;">></span>
+        <input type="text" class="palette-input" id="paletteInput" placeholder="Type a command or search actions..." autocomplete="off">
+      </div>
+      <div class="palette-list" id="paletteList">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

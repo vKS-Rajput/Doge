@@ -61,6 +61,7 @@ func (s *IPCServer) Start(addr string) (string, error) {
 	mux.HandleFunc("/api/events", s.handleEventsSSE)
 	mux.HandleFunc("/api/worldmodel", s.handleWorldModel)
 	mux.HandleFunc("/api/findings", s.handleFindings)
+	mux.HandleFunc("/api/mission/create", s.handleMissionCreate)
 
 	s.server = &http.Server{
 		Handler:      corsMiddleware(mux),
@@ -275,6 +276,42 @@ func (s *IPCServer) handleFindings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"findings":      findings,
 		"proof_bundles": bundles,
+	})
+}
+
+func (s *IPCServer) handleMissionCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Target    string `json:"target"`
+		Objective string `json:"objective"`
+		Budget    int    `json:"budget"`
+		Risk      string `json:"risk"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	s.broadcaster.Broadcast(
+		EventRuntimeReady,
+		"mission",
+		fmt.Sprintf("New Mission Contract established for %s [Budget: %d]", req.Target, req.Budget),
+		map[string]any{
+			"target":    req.Target,
+			"objective": req.Objective,
+			"budget":    req.Budget,
+			"risk":      req.Risk,
+		},
+	)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "created",
+		"target": req.Target,
+		"budget": req.Budget,
 	})
 }
 

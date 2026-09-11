@@ -79,6 +79,9 @@ requiring AI. AI reasoning is available but optional.`,
 		newWhyCmd(),
 		newScopeCmd(),
 		newAutoCmd(),
+		// Enterprise Reporting & CI/CD Gating.
+		newReportCmd(),
+		newGateCmd(),
 	)
 
 	return root

@@ -88,6 +88,9 @@ func (s *TacticalSandbox) ExecuteHTTP(ctx context.Context, req *http.Request) (*
 		inScope := false
 		for _, allowed := range s.cfg.AllowedHosts {
 			cleanAllowed := allowed
+			if u, err := url.Parse(allowed); err == nil && u.Host != "" {
+				cleanAllowed = u.Host
+			}
 			if idx := strings.Index(cleanAllowed, ":"); idx != -1 {
 				cleanAllowed = cleanAllowed[:idx]
 			}

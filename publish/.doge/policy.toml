@@ -1,0 +1,6 @@
+risk_ceiling = 0.6
+request_budget = 5000
+max_requests_per_second = 20
+state_changing_requires_approval = true
+allowed_methods = ['GET', 'HEAD', 'OPTIONS', 'POST']
+allowed_hosts = ['https://authorized.example']

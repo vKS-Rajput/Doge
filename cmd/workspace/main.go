@@ -86,6 +86,18 @@ requiring AI. AI reasoning is available but optional.`,
 		newScanCmd(),
 		// Native Desktop Operating Environment.
 		newDesktopCmd(),
+		// Section 39: Master Autonomous Research OS First-Class Commands.
+		newHuntCmd(),
+		newBenchmarkCmd(),
+		newMissionCmd(),
+		newFindingsCmd(),
+		newEvidenceCmd(),
+		newWorldCmd(),
+		newResearchersCmd(),
+		newModelsCmd(),
+		newPolicyCmd(),
+		newApproveCmd(),
+		newDenyCmd(),
 	)
 
 	return root

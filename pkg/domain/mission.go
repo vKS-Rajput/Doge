@@ -21,15 +21,24 @@ const (
 type ResearcherType string
 
 const (
-	ResearcherRecon         ResearcherType = "recon"
-	ResearcherAPI           ResearcherType = "api"
-	ResearcherAuthorization ResearcherType = "authorization"
-	ResearcherValidation    ResearcherType = "validation"
-	ResearcherImpact        ResearcherType = "impact"
-	ResearcherExploit       ResearcherType = "exploit"
-	ResearcherChain         ResearcherType = "chain"
-	ResearcherWorkflow      ResearcherType = "workflow"
-	ResearcherAnomaly       ResearcherType = "anomaly"
+	ResearcherRecon          ResearcherType = "recon"
+	ResearcherAPI            ResearcherType = "api"
+	ResearcherAuthentication ResearcherType = "authentication"
+	ResearcherAuthorization  ResearcherType = "authorization"
+	ResearcherDifferential   ResearcherType = "differential"
+	ResearcherMetamorphic    ResearcherType = "metamorphic"
+	ResearcherRace           ResearcherType = "race"
+	ResearcherCache          ResearcherType = "cache"
+	ResearcherInjection      ResearcherType = "injection"
+	ResearcherSource         ResearcherType = "source"
+	ResearcherCausal         ResearcherType = "causal"
+	ResearcherBrowser        ResearcherType = "browser"
+	ResearcherValidation     ResearcherType = "validation"
+	ResearcherImpact         ResearcherType = "impact"
+	ResearcherExploit        ResearcherType = "exploit"
+	ResearcherChain          ResearcherType = "chain"
+	ResearcherWorkflow       ResearcherType = "workflow"
+	ResearcherAnomaly        ResearcherType = "anomaly"
 )
 
 // MissionBrief is the scoped context provided to a specialized researcher for a focused mission.

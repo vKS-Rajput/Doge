@@ -3,6 +3,8 @@ package session
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -138,3 +140,46 @@ func (re *ReplayEngine) ReplayStepByStep(trace *SessionTrace, handler func(step 
 
 	return nil
 }
+
+// SaveTrace writes a completed session trace to .doge/traces/<session-id>.json.
+func SaveTrace(wsPath string, trace *SessionTrace) error {
+	if trace == nil {
+		return fmt.Errorf("cannot save nil trace")
+	}
+	dir := filepath.Join(wsPath, ".doge", "traces")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(trace, "", "  ")
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, trace.ID.String()+".json")
+	return os.WriteFile(path, data, 0644)
+}
+
+// ListTraces retrieves all saved session traces in .doge/traces/*.json.
+func ListTraces(wsPath string) ([]*SessionTrace, error) {
+	dir := filepath.Join(wsPath, ".doge", "traces")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	re := NewReplayEngine()
+	var traces []*SessionTrace
+	for _, f := range files {
+		if f.IsDir() || filepath.Ext(f.Name()) != ".json" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, f.Name()))
+		if err != nil {
+			continue
+		}
+		t, err := re.LoadTrace(data)
+		if err == nil && t != nil {
+			traces = append(traces, t)
+		}
+	}
+	return traces, nil
+}
+

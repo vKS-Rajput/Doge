@@ -39,10 +39,13 @@ namespace DOGE.Desktop.Services
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             var candidates = new[]
             {
+                Path.Combine(baseDir, "doge.exe"),
                 Path.Combine(baseDir, "doge-core.exe"),
-                Path.Combine(baseDir, "..", "doge-core.exe"),
-                Path.Combine(baseDir, "..", "..", "..", "..", "doge-core.exe"),
-                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge-core.exe")),
+                Path.Combine(baseDir, "..", "..", "..", "..", "build", "doge.exe"),
+                Path.Combine(baseDir, "..", "..", "..", "..", "doge.exe"),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "build", "doge.exe")),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge.exe")),
+                "doge.exe",
                 "doge-core.exe"
             };
 

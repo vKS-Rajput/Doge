@@ -286,4 +286,117 @@ namespace DOGE.Desktop.Models
             _ => "#64748B"
         };
     }
+
+    public class SpecializedResearcherCard
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Domain { get; set; } = "";
+        public string Status { get; set; } = "IDLE";
+        public string StatusColorHex { get; set; } = "#64748B";
+        public string CurrentAction { get; set; } = "Standing by for mission brief";
+        public string Invariant { get; set; } = "";
+        public double Confidence { get; set; } = 0.95;
+    }
+
+    public class BackgroundTaskCard
+    {
+        public string TaskId { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Status { get; set; } = "RUNNING";
+        public string StatusColorHex { get; set; } = "#00F0FF";
+        public string Duration { get; set; } = "0s";
+        public string ProgressText { get; set; } = "In Progress";
+    }
+
+    public class ArtifactCard
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Type { get; set; } = "Proof Bundle";
+        public string HashDigest { get; set; } = "";
+        public string CreatedAt { get; set; } = "Just now";
+        public bool IsAttested { get; set; } = true;
+    }
+
+    public class ScheduledTaskCard
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Schedule { get; set; } = "Every 1 hour";
+        public string Target { get; set; } = "";
+        public string Status { get; set; } = "Active";
+        public string NextRun { get; set; } = "In 45 mins";
+    }
+
+    public class TargetEndpointItem
+    {
+        public string Id { get; set; } = "";
+        public string Method { get; set; } = "GET";
+        public string Path { get; set; } = "";
+        public string Status { get; set; } = "Discovered";
+        public int ObservationCount { get; set; } = 1;
+        public string FirstSeen { get; set; } = "Recently";
+        public string LastTested { get; set; } = "Untested";
+    }
+
+    public class TargetHostItem
+    {
+        public string Host { get; set; } = "";
+        public string Ip { get; set; } = "";
+        public string Ports { get; set; } = "";
+        public string Status { get; set; } = "200 OK";
+        public string Technologies { get; set; } = "";
+    }
+
+    public class TargetParamItem
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "query";
+        public string Endpoint { get; set; } = "";
+        public string AnomalyStatus { get; set; } = "Normal";
+    }
+
+    public class NotebookNoteItem
+    {
+        public string Id { get; set; } = "";
+        public string Text { get; set; } = "";
+        public string Author { get; set; } = "operator";
+        public string Category { get; set; } = "general";
+        public string ObservedAt { get; set; } = "";
+    }
+
+    public class NotebookJournalItem
+    {
+        public string Id { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Subject { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string OccurredAt { get; set; } = "";
+    }
+
+    public class UnknownSpaceItem
+    {
+        public string Id { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string Status { get; set; } = "untested";
+        public string Notes { get; set; } = "";
+    }
+
+    public class HomeBriefing
+    {
+        public string MissionTarget { get; set; } = "None";
+        public string MissionStatus { get; set; } = "STANDBY";
+        public int RequestsUsed { get; set; } = 0;
+        public int RequestBudget { get; set; } = 5000;
+        public int HostsCount { get; set; } = 0;
+        public int EndpointsCount { get; set; } = 0;
+        public int InvariantsCount { get; set; } = 0;
+        public int ParametersCount { get; set; } = 0;
+        public string CurrentTestingTitle { get; set; } = "Standby · No Active Probe";
+        public string CurrentTestingRationale { get; set; } = "Awaiting research target or loop activation.";
+        public double CurrentEigScore { get; set; } = 0.0;
+        public int ProvenFindingsCount { get; set; } = 0;
+        public int PendingGatesCount { get; set; } = 0;
+    }
 }

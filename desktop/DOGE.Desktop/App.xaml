@@ -38,12 +38,12 @@
         <!-- Base Cyber Button Style -->
         <Style x:Key="CyberButton" TargetType="Button">
             <Setter Property="Background" Value="#0F172A" />
-            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="Foreground" Value="#CBD5E1" />
             <Setter Property="BorderBrush" Value="#1E293B" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="9,4.5" />
+            <Setter Property="Padding" Value="11,6" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -79,6 +79,7 @@
             <Setter Property="Foreground" Value="{StaticResource BrushCyan}" />
             <Setter Property="BorderBrush" Value="{StaticResource BrushCyan}" />
             <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12.5" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -110,6 +111,7 @@
             <Setter Property="Foreground" Value="{StaticResource BrushCrimson}" />
             <Setter Property="BorderBrush" Value="{StaticResource BrushCrimson}" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
         </Style>
 
         <!-- Search / Input Style -->
@@ -118,7 +120,8 @@
             <Setter Property="Foreground" Value="{StaticResource BrushText}" />
             <Setter Property="BorderBrush" Value="{StaticResource BrushCardBorder}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="9,6" />
             <Setter Property="CaretBrush" Value="{StaticResource BrushCyan}" />
             <Setter Property="Template">
                 <Setter.Value>

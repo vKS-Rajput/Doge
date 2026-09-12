@@ -28,3 +28,8 @@ vendor/
 *.db
 *.db-wal
 *.db-shm
+
+# .NET / WPF
+**/bin/
+**/obj/
+*.pdb

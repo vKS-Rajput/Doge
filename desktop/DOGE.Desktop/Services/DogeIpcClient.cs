@@ -35,31 +35,59 @@ namespace DOGE.Desktop.Services
             if (await TryConnectPipeAsync())
                 return;
 
-            // 2. If Core not detected, find and start doge.exe in background headless mode
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var candidates = new[]
+            // 2. Check if a doge core process is already running on the system
+            var existingProcesses = Process.GetProcessesByName("doge")
+                .Concat(Process.GetProcessesByName("doge-core"))
+                .ToArray();
+            if (existingProcesses.Length > 0)
             {
-                Path.Combine(baseDir, "doge.exe"),
-                Path.Combine(baseDir, "doge-core.exe"),
-                Path.Combine(baseDir, "..", "..", "..", "..", "build", "doge.exe"),
-                Path.Combine(baseDir, "..", "..", "..", "..", "doge.exe"),
-                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "build", "doge.exe")),
-                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge.exe")),
-                "doge.exe",
-                "doge-core.exe"
-            };
-
-            foreach (var candidate in candidates)
-            {
-                try
+                // Wait briefly for pipe to become available
+                for (int i = 0; i < 3; i++)
                 {
-                    if (File.Exists(candidate))
+                    await Task.Delay(800);
+                    if (await TryConnectPipeAsync())
+                        return;
+                }
+            }
+            else
+            {
+                // 3. Find a single valid doge.exe candidate
+                string? bestCandidate = null;
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                var candidates = new[]
+                {
+                    Path.Combine(baseDir, "doge.exe"),
+                    Path.Combine(baseDir, "doge-core.exe"),
+                    Path.Combine(baseDir, "..", "..", "..", "..", "build", "doge.exe"),
+                    Path.Combine(baseDir, "..", "..", "..", "..", "doge.exe"),
+                    Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "build", "doge.exe")),
+                    Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge.exe")),
+                    "doge.exe",
+                    "doge-core.exe"
+                };
+
+                foreach (var candidate in candidates)
+                {
+                    try
+                    {
+                        if (File.Exists(candidate))
+                        {
+                            bestCandidate = Path.GetFullPath(candidate);
+                            break; // Stop at the very first valid executable!
+                        }
+                    }
+                    catch { }
+                }
+
+                if (bestCandidate != null)
+                {
+                    try
                     {
                         var psi = new ProcessStartInfo
                         {
-                            FileName = Path.GetFullPath(candidate),
+                            FileName = bestCandidate,
                             Arguments = "desktop --headless",
-                            WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(candidate)),
+                            WorkingDirectory = Path.GetDirectoryName(bestCandidate),
                             UseShellExecute = false,
                             CreateNoWindow = true
                         };
@@ -67,20 +95,19 @@ namespace DOGE.Desktop.Services
                         _spawnedCoreProcess = Process.Start(psi);
                         if (_spawnedCoreProcess != null)
                         {
-                            // Wait briefly for pipe to register
-                            await Task.Delay(1500);
-                            if (await TryConnectPipeAsync())
-                                return;
+                            for (int i = 0; i < 4; i++)
+                            {
+                                await Task.Delay(750);
+                                if (await TryConnectPipeAsync())
+                                    return;
+                            }
                         }
                     }
-                }
-                catch
-                {
-                    // Continue to next candidate
+                    catch { }
                 }
             }
 
-            // 3. Fallback to HTTP check
+            // 4. Fallback to HTTP check
             await TryConnectHttpAsync();
         }
 
@@ -179,6 +206,10 @@ namespace DOGE.Desktop.Services
                         "research.stop" => "/api/research/stop",
                         "worldmodel.get" => "/api/worldmodel",
                         "findings.get" => "/api/findings",
+                        "notebook.get" => "/api/notebook",
+                        "target.get" => "/api/target",
+                        "research.get" => "/api/research",
+                        "evidence.get" => "/api/evidence",
                         _ => null
                     };
 
@@ -233,9 +264,17 @@ namespace DOGE.Desktop.Services
         public void Dispose()
         {
             try { _cts.Cancel(); } catch { }
+            try { _cts.Dispose(); } catch { }
+
             try { _pipeWriter?.Dispose(); } catch { }
+            _pipeWriter = null;
+
             try { _pipeReader?.Dispose(); } catch { }
+            _pipeReader = null;
+
             try { _pipeClient?.Dispose(); } catch { }
+            _pipeClient = null;
+
             try { _httpClient.Dispose(); } catch { }
 
             if (_spawnedCoreProcess != null && !_spawnedCoreProcess.HasExited)

@@ -414,6 +414,61 @@ func (s *PipeServer) dispatch(req PipeMessage) PipeMessage {
 			}
 		}
 
+	case "notebook.get":
+		summary, err := s.runtime.GetNotebookSummary()
+		if err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = summary
+		}
+
+	case "note.add":
+		var p struct {
+			Note     string `json:"note"`
+			Category string `json:"category"`
+			Target   string `json:"target"`
+		}
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			resp.Success = false
+			resp.Error = "Invalid note payload: " + err.Error()
+			return resp
+		}
+		noteRes, err := s.runtime.AddResearcherNote(p.Note, p.Category, p.Target)
+		if err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = noteRes
+		}
+
+	case "target.get":
+		targetSummary, err := s.runtime.GetTargetSummary()
+		if err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = targetSummary
+		}
+
+	case "research.get":
+		researchSummary, err := s.runtime.GetResearchSummary()
+		if err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = researchSummary
+		}
+
+	case "evidence.get":
+		evidenceSummary, err := s.runtime.GetEvidenceSummary()
+		if err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = evidenceSummary
+		}
+
 	default:
 		resp.Success = false
 		resp.Error = fmt.Sprintf("Unknown action '%s'", req.Action)

@@ -40,15 +40,10 @@ namespace DOGE.Desktop.Services
             var candidates = new[]
             {
                 Path.Combine(baseDir, "doge-core.exe"),
-                Path.Combine(baseDir, "doge.exe"),
                 Path.Combine(baseDir, "..", "doge-core.exe"),
-                Path.Combine(baseDir, "..", "doge.exe"),
                 Path.Combine(baseDir, "..", "..", "..", "..", "doge-core.exe"),
-                Path.Combine(baseDir, "..", "..", "..", "..", "doge.exe"),
                 Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge-core.exe")),
-                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "doge.exe")),
-                "doge-core.exe",
-                "doge.exe"
+                "doge-core.exe"
             };
 
             foreach (var candidate in candidates)
@@ -134,6 +129,8 @@ namespace DOGE.Desktop.Services
             OnStatusChanged?.Invoke("DOGE Core Offline / Laboratory Ready");
             return false;
         }
+
+        public async Task<PipeMessage?> SendActionAsync<T>(string action, object? payload = null) => await SendAsync(action, payload);
 
         public async Task<PipeMessage?> SendAsync(string action, object? payload = null)
         {
@@ -232,11 +229,11 @@ namespace DOGE.Desktop.Services
 
         public void Dispose()
         {
-            _cts.Cancel();
-            _pipeReader?.Dispose();
-            _pipeWriter?.Dispose();
-            _pipeClient?.Dispose();
-            _httpClient.Dispose();
+            try { _cts.Cancel(); } catch { }
+            try { _pipeWriter?.Dispose(); } catch { }
+            try { _pipeReader?.Dispose(); } catch { }
+            try { _pipeClient?.Dispose(); } catch { }
+            try { _httpClient.Dispose(); } catch { }
 
             if (_spawnedCoreProcess != null && !_spawnedCoreProcess.HasExited)
             {

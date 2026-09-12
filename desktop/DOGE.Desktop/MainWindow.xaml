@@ -3,82 +3,106 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:DOGE.Desktop.Controls"
         Title="DOGE — Security Research Workstation"
-        Height="980" Width="1540" MinHeight="750" MinWidth="1180"
+        Height="960" Width="1520" MinHeight="750" MinWidth="1180"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="False"
         Background="{StaticResource BrushBgObsidian}">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="46" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
+        <WindowChrome CaptionHeight="44" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
     <Grid>
         <Grid.RowDefinitions>
             <!-- Top Command Bar -->
-            <RowDefinition Height="46" />
-            <!-- Main Content Area -->
+            <RowDefinition Height="44" />
+            <!-- Main Cockpit Body -->
             <RowDefinition Height="*" />
             <!-- Bottom Status Bar -->
-            <RowDefinition Height="26" />
+            <RowDefinition Height="24" />
         </Grid.RowDefinitions>
 
         <!-- ==================== 1. TOP COMMAND BAR ==================== -->
-        <Border Grid.Row="0" Background="#0A0E18" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="#080C16" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="0,0,0,1">
             <Grid Margin="12,0,12,0">
                 <Grid.ColumnDefinitions>
-                    <!-- Brand -->
+                    <!-- Brand & Target Pill -->
                     <ColumnDefinition Width="Auto" />
-                    <!-- Search / Command Palette -->
-                    <ColumnDefinition Width="280" />
-                    <!-- Action Buttons -->
+                    <!-- Command Palette / Search -->
+                    <ColumnDefinition Width="340" />
+                    <!-- Quick Actions -->
                     <ColumnDefinition Width="*" />
-                    <!-- Tagline & Window Controls -->
+                    <!-- Status Indicator & Window Controls -->
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- DOGE Brand Logo & Title -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0">
-                    <TextBlock Text="🐺" FontSize="20" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="D O G E" FontFamily="Consolas, Segoe UI" FontWeight="Bold" FontSize="13" Foreground="{StaticResource BrushCyan}" />
-                        <TextBlock Text="SECURITY RESEARCH WORKSTATION" FontSize="7.5" FontWeight="SemiBold" Foreground="#475569" />
+                <!-- DOGE Brand Logo & Active Target Pill -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="🐺" FontSize="18" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                        <TextBlock Text="D O G E" FontFamily="Segoe UI Variable Display, Consolas, Segoe UI" FontWeight="Bold" FontSize="13" Foreground="{StaticResource BrushCyan}" />
+                        <TextBlock Text="SECURITY RESEARCH OPERATING ENVIRONMENT" FontSize="7" FontWeight="SemiBold" Foreground="#475569" />
                     </StackPanel>
+
+                    <!-- Active Target Scope Pill -->
+                    <Border Background="#0C1524" BorderBrush="#1C2E46" BorderThickness="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🌐 " FontSize="9.5" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="txtTopTarget" Text="example.com" FontSize="10" FontWeight="SemiBold" Foreground="#E2E8F0" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <Border Background="#064E3B" CornerRadius="3" Padding="4,1" VerticalAlignment="Center">
+                                <TextBlock Text="IN-SCOPE" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- Search / Command Palette Input -->
-                <Border Grid.Column="1" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="4" Height="28" Margin="0,0,15,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Grid Margin="6,0,6,0">
+                <Border Grid.Column="1" Background="#0C1220" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Height="28" Margin="0,0,15,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid Margin="8,0,8,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="🔍" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBox x:Name="txtSearch" Grid.Column="1" Background="Transparent" Foreground="#CBD5E1" BorderThickness="0" FontSize="11" VerticalAlignment="Center" Text="Ctrl + Shift + P  Search anything..." GotFocus="OnSearchGotFocus" LostFocus="OnSearchLostFocus" KeyDown="OnSearchKeyDown" />
+                        <TextBlock Text="🔍" FontSize="10" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox x:Name="txtSearch" Grid.Column="1" Background="Transparent" Foreground="#CBD5E1" BorderThickness="0" FontSize="10.5" VerticalAlignment="Center" Text="Ctrl + Shift + P  Search target, CVE, invariant..." GotFocus="OnSearchGotFocus" LostFocus="OnSearchLostFocus" KeyDown="OnSearchKeyDown" />
                     </Grid>
                 </Border>
 
                 <!-- Quick Action Buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Content="+ New Target" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnNewTargetClick" />
-                    <Button Content="⚡ Quick Scan" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnQuickScanClick" />
-                    <Button Content="👁 Deep Recon" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnDeepReconClick" />
-                    <Button Content="🎯 Exploit Path" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnExploitPathClick" />
-                    <Button Content="🤖 AI Assistant" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnAiAssistantClick" />
-                    <Button Content="📄 Report" Style="{StaticResource CyberButton}" Margin="0,0,10,0" Click="OnReportClick" />
-                    <!-- Primary Glowing Start Button -->
-                    <Button x:Name="btnStart" Content="▶  Start" Style="{StaticResource CyberPrimaryButton}" Width="85" Height="28" Click="OnStartResearchClick" />
+                    <Button Content="+ New Mission" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnNewTargetClick" />
+                    <Button x:Name="btnStart" Content="▶  Start Loop" Style="{StaticResource CyberPrimaryButton}" Width="100" Height="26" Margin="0,0,10,0" Click="OnStartResearchClick" />
+                    <!-- Autonomy Mode Pill -->
+                    <Border Background="#140E26" BorderBrush="#3B1C63" BorderThickness="1" CornerRadius="4" Padding="6,3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚡ Mode: " FontSize="9" Foreground="#94A3B8" />
+                            <TextBlock x:Name="txtTopAutonomy" Text="Level 3 (Low-Risk Authorized)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushViolet}" />
+                        </StackPanel>
+                    </Border>
+                    <!-- Human Approval Alert Badge -->
+                    <Border x:Name="badgePendingApproval" Background="#3B1212" BorderBrush="{StaticResource BrushCrimson}" BorderThickness="1" CornerRadius="4" Padding="6,3" Margin="8,0,0,0" VerticalAlignment="Center" Cursor="Hand" Visibility="Collapsed" MouseLeftButtonDown="OnPendingApprovalBadgeClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠️ " FontSize="9" Foreground="{StaticResource BrushCrimson}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="txtPendingApprovalCount" Text="1 ACTION PENDING APPROVAL" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCrimson}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
-                <!-- Tagline and Window Controls -->
+                <!-- WSL Status Pill and Custom Window Controls -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Hack Smarter, Go Deeper." FontSize="10.5" FontStyle="Italic" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,16,0" />
+                    <Border Background="#07191B" BorderBrush="#0C3B3C" BorderThickness="1" CornerRadius="4" Padding="6,3" Margin="0,0,14,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="● " FontSize="8" Foreground="{StaticResource BrushEmerald}" VerticalAlignment="Center" />
+                            <TextBlock Text="WSL2 Kali Ready" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushEmerald}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
 
                     <!-- Custom Window Buttons -->
                     <StackPanel Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button Content="—" Style="{StaticResource CyberButton}" Width="28" Height="24" Padding="0" Click="OnMinimizeClick" Margin="0,0,3,0" />
-                        <Button Content="□" Style="{StaticResource CyberButton}" Width="28" Height="24" Padding="0" Click="OnMaximizeClick" Margin="0,0,3,0" />
-                        <Button Content="✕" Style="{StaticResource CyberButton}" Width="28" Height="24" Padding="0" Click="OnCloseClick" />
+                        <Button Content="—" Style="{StaticResource CyberButton}" Width="26" Height="22" Padding="0,0,0,0" Click="OnMinimizeClick" Margin="0,0,2,0" />
+                        <Button Content="□" Style="{StaticResource CyberButton}" Width="26" Height="22" Padding="0,0,0,0" Click="OnMaximizeClick" Margin="0,0,2,0" />
+                        <Button Content="✕" Style="{StaticResource CyberButton}" Width="26" Height="22" Padding="0,0,0,0" Click="OnCloseClick" />
                     </StackPanel>
                 </StackPanel>
             </Grid>
@@ -87,17 +111,17 @@
         <!-- ==================== 2. MAIN COCKPIT BODY ==================== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <!-- Left Sidebar Navigation Rail -->
-                <ColumnDefinition Width="170" />
-                <!-- Central Workspace -->
+                <!-- Left Sidebar Navigation Rail (180px) -->
+                <ColumnDefinition Width="180" />
+                <!-- Central Workspace (*) -->
                 <ColumnDefinition Width="*" />
-                <!-- Right AI Panel -->
-                <ColumnDefinition Width="330" />
+                <!-- Right Inspector / AI Assistant (310px) -->
+                <ColumnDefinition x:Name="colRightPanel" Width="310" />
             </Grid.ColumnDefinitions>
 
-            <!-- ==================== LEFT SIDEBAR ==================== -->
+            <!-- ==================== LEFT NAVIGATION RAIL ==================== -->
             <Border Grid.Column="0" Background="#060912" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="0,0,1,0">
-                <Grid Margin="8,8,8,6">
+                <Grid Margin="6,8,6,6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
@@ -105,508 +129,526 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="navPanel">
-                            <!-- Nav Items matching screenshot -->
-                            <Border x:Name="navDashboard" Background="#0E2238" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="⊞" Foreground="{StaticResource BrushCyan}" FontSize="13" Margin="0,0,8,0" />
-                                    <TextBlock Text="Dashboard" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                            <!-- Group 1: EXPLORATION -->
+                            <TextBlock Text="EXPLORATION" FontSize="8" FontWeight="Bold" Foreground="#475569" Margin="8,4,0,4" />
+
+                            <Border x:Name="navMission" Tag="Mission" Background="#0E2238" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
+                                    <TextBlock Text="🚀" Foreground="{StaticResource BrushCyan}" FontSize="11.5" Margin="0,0,8,0" />
+                                    <TextBlock Text="Mission Cockpit" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navRecon" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🔍" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Recon" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border x:Name="navTargets" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🎯" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Targets" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border x:Name="navVulns" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🛡" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Vulnerabilities" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border x:Name="navExploit" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="⚡" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Exploitation" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border x:Name="navPostExploit" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="⚙" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Post-Exploit" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border x:Name="navWorldMap" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
+                            <Border x:Name="navSurface" Tag="Surface" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
                                     <TextBlock Text="🌐" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="World Map" Foreground="#94A3B8" FontSize="11.5" />
+                                    <TextBlock Text="Attack Surface" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navEvidence" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="📜" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Evidence" Foreground="#94A3B8" FontSize="11.5" />
+                            <Border x:Name="navResearch" Tag="Research" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
+                                    <TextBlock Text="⚡" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                    <TextBlock Text="Research Frontier" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navReports" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="📑" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Reports" Foreground="#94A3B8" FontSize="11.5" />
+                            <!-- Group 2: MODELS & EXPERIMENTS -->
+                            <TextBlock Text="MODELS &amp; ENGINE" FontSize="8" FontWeight="Bold" Foreground="#475569" Margin="8,10,0,4" />
+
+                            <Border x:Name="navWorldModel" Tag="WorldModel" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
+                                    <TextBlock Text="🧠" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                    <TextBlock Text="World Model" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navAutomation" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🔗" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Automation" Foreground="#94A3B8" FontSize="11.5" />
+                            <Border x:Name="navExperiments" Tag="Experiments" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
+                                    <TextBlock Text="🧪" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                    <TextBlock Text="Experiments" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navAi" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🤖" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="AI Assistant" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
+                            <!-- Group 3: VALIDATION & PROOF -->
+                            <TextBlock Text="VALIDATION &amp; PROOF" FontSize="8" FontWeight="Bold" Foreground="#475569" Margin="8,10,0,4" />
+
+                            <Border x:Name="navFindings" Tag="Findings" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <Grid Margin="8,6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="🛡" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                        <TextBlock Text="Findings" Foreground="#94A3B8" FontSize="11" />
+                                    </StackPanel>
+                                    <Border Background="#450A0A" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                        <TextBlock Text="12" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCrimson}" />
+                                    </Border>
+                                </Grid>
                             </Border>
 
-                            <Border x:Name="navPlaybooks" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="📖" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Playbooks" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
+                            <Border x:Name="navEvidence" Tag="Evidence" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <Grid Margin="8,6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="📜" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                        <TextBlock Text="Evidence Studio" Foreground="#94A3B8" FontSize="11" />
+                                    </StackPanel>
+                                    <Border Background="#0C264D" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                        <TextBlock Text="4" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                    </Border>
+                                </Grid>
                             </Border>
 
-                            <Border x:Name="navToolbox" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="🧰" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Toolbox" Foreground="#94A3B8" FontSize="11.5" />
-                                </StackPanel>
-                            </Border>
+                            <!-- Group 4: LABORATORY -->
+                            <TextBlock Text="LABORATORY" FontSize="8" FontWeight="Bold" Foreground="#475569" Margin="8,10,0,4" />
 
-                            <Border x:Name="navTerminal" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
+                            <Border x:Name="navTerminal" Tag="Terminal" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
                                     <TextBlock Text="💻" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Terminal" Foreground="#94A3B8" FontSize="11.5" />
+                                    <TextBlock Text="WSL2 Terminal" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navNotes" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
-                                    <TextBlock Text="📝" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Notes" Foreground="#94A3B8" FontSize="11.5" />
+                            <Border x:Name="navToolbox" Tag="Toolbox" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
+                                    <TextBlock Text="🧰" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
+                                    <TextBlock Text="Security Toolbox" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="navSettings" Background="Transparent" CornerRadius="5" Margin="0,0,0,3" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
-                                <StackPanel Orientation="Horizontal" Margin="8,7">
+                            <Border x:Name="navAutonomy" Tag="Autonomy" Background="Transparent" CornerRadius="5" Margin="0,0,0,2" Cursor="Hand" MouseLeftButtonDown="OnNavClick">
+                                <StackPanel Orientation="Horizontal" Margin="8,6">
                                     <TextBlock Text="⚙" Foreground="#64748B" FontSize="11" Margin="0,0,8,0" />
-                                    <TextBlock Text="Settings" Foreground="#94A3B8" FontSize="11.5" />
+                                    <TextBlock Text="Policy &amp; Autonomy" Foreground="#94A3B8" FontSize="11" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Bottom Wolf Artwork Motto -->
-                    <Border Grid.Row="1" Background="#0A0E18" BorderBrush="#162032" BorderThickness="1" CornerRadius="4" Padding="6,8" Margin="0,6,0,0">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="🐺" FontSize="22" Foreground="#334155" HorizontalAlignment="Center" Margin="0,0,0,3" />
-                            <TextBlock Text="Different Tools." FontSize="8" Foreground="#64748B" HorizontalAlignment="Center" />
-                            <TextBlock Text="Greater Researchers." FontSize="8" FontWeight="SemiBold" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                    <!-- Bottom Workstation Identity Card -->
+                    <Border Grid.Row="1" Background="#0A0E18" BorderBrush="#151E30" BorderThickness="1" CornerRadius="5" Padding="8,8" Margin="0,6,0,0">
+                        <StackPanel>
+                            <TextBlock Text="DOGE OPERATING CORE" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Autonomous Security Workstation" FontSize="7.5" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            <TextBlock Text="Offline-First · Cryptographic Proof" FontSize="7" Foreground="#475569" HorizontalAlignment="Center" Margin="0,2,0,0" />
                         </StackPanel>
                     </Border>
                 </Grid>
             </Border>
 
-            <!-- ==================== CENTRAL COCKPIT ==================== -->
+            <!-- ==================== CENTRAL WORKSPACE (VIEWS) ==================== -->
             <Grid Grid.Column="1" Margin="10,8,10,8">
-                <Grid.RowDefinitions>
-                    <!-- Row 1: 4 Metric / Status Cards -->
-                    <RowDefinition Height="85" />
-                    <!-- Row 2: Attack Surface Visualizer + Target Details -->
-                    <RowDefinition Height="340" />
-                    <!-- Row 3: Bottom Terminal + Findings + Evidence -->
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
 
-                <!-- Row 1: Status Cards -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- ========== VIEW 1: MISSION (THE COCKPIT) ========== -->
+                <Grid x:Name="viewMission" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <!-- Top 4 Metric KPI Cards -->
+                        <RowDefinition Height="76" />
+                        <!-- Middle Split: Attack Surface Canvas (60%) + Hypothesis Invariant (40%) -->
+                        <RowDefinition Height="*" />
+                        <!-- Bottom: Live Laboratory Activity Stream -->
+                        <RowDefinition Height="180" />
+                    </Grid.RowDefinitions>
 
-                    <!-- Card 1: Current Target -->
-                    <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,6,0" Padding="12,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="CURRENT TARGET" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="🌐" FontSize="20" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <StackPanel VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="txtTargetDomain" Text="example.com" FontSize="13" FontWeight="Bold" Foreground="#F1F5F9" Margin="0,0,6,0" />
-                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1">
-                                            <TextBlock Text="Active" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
-                                        </Border>
+                    <!-- Top 4 Metric Cards -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Card 1: Target Posture -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,5,0" Padding="10,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="TARGET POSTURE" FontSize="8" FontWeight="Bold" Foreground="#64748B" />
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🌐" FontSize="18" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="txtTargetDomain" Text="example.com" FontSize="12.5" FontWeight="Bold" Foreground="#F1F5F9" />
+                                        <TextBlock x:Name="txtTargetIp" Text="192.168.1.10 · Nginx 1.24.0" FontSize="9" Foreground="#64748B" FontFamily="Consolas" />
                                     </StackPanel>
-                                    <TextBlock x:Name="txtTargetIp" Text="192.168.1.10" FontSize="10" Foreground="#64748B" FontFamily="Consolas" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 2: Scan Status -->
-                    <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3,0,3,0" Padding="12,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="SCAN STATUS" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,4">
-                                    <TextBlock Text="🎯" FontSize="16" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <StackPanel>
-                                        <TextBlock x:Name="txtScanStatusTitle" Text="Deep Recon" FontSize="13" FontWeight="Bold" Foreground="#F1F5F9" />
-                                        <TextBlock x:Name="txtScanStatusSubtitle" Text="Running... 73%" FontSize="9.5" Foreground="{StaticResource BrushCyan}" />
-                                    </StackPanel>
-                                </StackPanel>
-                                <!-- Progress Bar -->
-                                <ProgressBar x:Name="scanProgressBar" Value="73" Maximum="100" Height="4" Background="#1E293B" Foreground="{StaticResource BrushCyan}" BorderThickness="0" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 3: Findings -->
-                    <Border Grid.Column="2" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3,0,3,0" Padding="12,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="FINDINGS" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
-                            <UniformGrid Grid.Row="1" Columns="4" VerticalAlignment="Center">
-                                <!-- Critical -->
-                                <StackPanel HorizontalAlignment="Center">
-                                    <Border Background="#450A0A" CornerRadius="12" Width="24" Height="24">
-                                        <TextBlock Text="⊘" Foreground="{StaticResource BrushCrimson}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock x:Name="txtCriticalCount" Text="12" FontWeight="Bold" FontSize="12" Foreground="#F1F5F9" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Critical" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
-                                </StackPanel>
-                                <!-- High -->
-                                <StackPanel HorizontalAlignment="Center">
-                                    <Border Background="#431407" CornerRadius="12" Width="24" Height="24">
-                                        <TextBlock Text="⚠" Foreground="#F97316" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock x:Name="txtHighCount" Text="28" FontWeight="Bold" FontSize="12" Foreground="#F1F5F9" HorizontalAlignment="Center" />
-                                    <TextBlock Text="High" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
-                                </StackPanel>
-                                <!-- Medium -->
-                                <StackPanel HorizontalAlignment="Center">
-                                    <Border Background="#451A03" CornerRadius="12" Width="24" Height="24">
-                                        <TextBlock Text="◼" Foreground="{StaticResource BrushAmber}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock x:Name="txtMediumCount" Text="47" FontWeight="Bold" FontSize="12" Foreground="#F1F5F9" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Medium" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
-                                </StackPanel>
-                                <!-- Low -->
-                                <StackPanel HorizontalAlignment="Center">
-                                    <Border Background="#0C264D" CornerRadius="12" Width="24" Height="24">
-                                        <TextBlock Text="🠗" Foreground="#38BDF8" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock x:Name="txtLowCount" Text="93" FontWeight="Bold" FontSize="12" Foreground="#F1F5F9" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Low" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
-                                </StackPanel>
-                            </UniformGrid>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 4: System Telemetry -->
-                    <Border Grid.Column="3" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="6,0,0,0" Padding="12,10">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="SYSTEM" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
-                                <TextBlock Text=" · WSL2" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" Margin="4,0,2,0" />
-                                <TextBlock Text=" · Kali Linux" FontSize="8.5" Foreground="#94A3B8" />
-                                <Border Background="#064E3B" CornerRadius="3" Padding="3,0" Margin="6,0,0,0">
-                                    <TextBlock Text="● Online" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
-                                </Border>
-                            </StackPanel>
-                            <UniformGrid Grid.Row="1" Columns="3" VerticalAlignment="Center">
-                                <StackPanel>
-                                    <TextBlock Text="CPU" FontSize="7.5" Foreground="#64748B" />
-                                    <TextBlock x:Name="txtCpu" Text="32%" FontSize="11" FontWeight="Bold" Foreground="#F1F5F9" />
-                                </StackPanel>
-                                <StackPanel>
-                                    <TextBlock Text="RAM" FontSize="7.5" Foreground="#64748B" />
-                                    <TextBlock x:Name="txtRam" Text="5.1/16 GB" FontSize="11" FontWeight="Bold" Foreground="#F1F5F9" />
-                                </StackPanel>
-                                <StackPanel>
-                                    <TextBlock Text="DISK" FontSize="7.5" Foreground="#64748B" />
-                                    <TextBlock x:Name="txtDisk" Text="120 GB free" FontSize="11" FontWeight="Bold" Foreground="#F1F5F9" />
-                                </StackPanel>
-                            </UniformGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
-
-                <!-- Row 2: Attack Surface Visualizer + Target Details -->
-                <Grid Grid.Row="1" Margin="0,8,0,8">
-                    <Grid.ColumnDefinitions>
-                        <!-- Visualizer Graph -->
-                        <ColumnDefinition Width="6.5*" />
-                        <!-- Target Details Card -->
-                        <ColumnDefinition Width="3.5*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Attack Surface Visualizer -->
-                    <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,6,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="36" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="26" />
-                            </Grid.RowDefinitions>
-
-                            <!-- Visualizer Header Tabs -->
-                            <Grid Grid.Row="0" Margin="10,0,10,0">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="⊞ ATTACK SURFACE VISUALIZER" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,14,0" />
-                                    <Border Background="#0A1828" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="3" Padding="8,3" Margin="0,0,4,0">
-                                        <TextBlock Text="Network View" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" />
-                                    </Border>
-                                    <Button Content="Attack Path" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Padding="8,3" FontSize="9" />
-                                    <Button Content="Dependencies" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Padding="8,3" FontSize="9" />
-                                    <Button Content="Custom" Style="{StaticResource CyberButton}" Padding="8,3" FontSize="9" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Button Content="+" Style="{StaticResource CyberButton}" Width="22" Height="22" Padding="0" Click="OnZoomInClick" Margin="0,0,3,0" />
-                                    <Button Content="—" Style="{StaticResource CyberButton}" Width="22" Height="22" Padding="0" Click="OnZoomOutClick" Margin="0,0,6,0" />
-                                    <Button Content="⛶" Style="{StaticResource CyberButton}" Width="22" Height="22" Padding="0" Click="OnResetGraphClick" />
                                 </StackPanel>
                             </Grid>
+                        </Border>
 
-                            <!-- Graph Canvas Control -->
-                            <controls:AttackSurfaceCanvas x:Name="graphCanvas" Grid.Row="1" />
+                        <!-- Card 2: Autonomous Research Loop -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3,0,3,0" Padding="10,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="AUTONOMOUS RESEARCH LOOP" FontSize="8" FontWeight="Bold" Foreground="#64748B" />
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,4">
+                                        <TextBlock Text="⚡" FontSize="14" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <StackPanel>
+                                            <TextBlock x:Name="txtScanStatusTitle" Text="Standby · Ready" FontSize="12" FontWeight="Bold" Foreground="#F1F5F9" />
+                                            <TextBlock x:Name="txtScanStatusSubtitle" Text="Research Frontier ΔI = 0.84" FontSize="9" Foreground="{StaticResource BrushCyan}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <ProgressBar x:Name="scanProgressBar" Value="100" Maximum="100" Height="3" Background="#1E293B" Foreground="{StaticResource BrushCyan}" BorderThickness="0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                            <!-- Legend at Bottom -->
-                            <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                    <Ellipse Width="7" Height="7" Fill="{StaticResource BrushCyan}" Margin="0,0,4,0" />
-                                    <TextBlock Text="Discovered" FontSize="8.5" Foreground="#94A3B8" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                    <Ellipse Width="7" Height="7" Fill="{StaticResource BrushCrimson}" Margin="0,0,4,0" />
-                                    <TextBlock Text="Vulnerable" FontSize="8.5" Foreground="#94A3B8" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                    <Ellipse Width="7" Height="7" Fill="{StaticResource BrushAmber}" Margin="0,0,4,0" />
-                                    <TextBlock Text="Exploitable" FontSize="8.5" Foreground="#94A3B8" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                    <Ellipse Width="7" Height="7" Fill="{StaticResource BrushEmerald}" Margin="0,0,4,0" />
-                                    <TextBlock Text="Internal" FontSize="8.5" Foreground="#94A3B8" />
-                                </StackPanel>
+                        <!-- Card 3: Findings -->
+                        <Border Grid.Column="2" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3,0,3,0" Padding="10,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="VERIFIED FINDINGS" FontSize="8" FontWeight="Bold" Foreground="#64748B" />
+                                <UniformGrid Grid.Row="1" Columns="4" VerticalAlignment="Center">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="12" FontWeight="Bold" FontSize="13" Foreground="{StaticResource BrushCrimson}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Critical" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="28" FontWeight="Bold" FontSize="13" Foreground="{StaticResource BrushAmber}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="High" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="47" FontWeight="Bold" FontSize="13" Foreground="#FBBF24" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Med" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <TextBlock Text="93" FontWeight="Bold" FontSize="13" Foreground="#38BDF8" HorizontalAlignment="Center" />
+                                        <TextBlock Text="Low" FontSize="7.5" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </UniformGrid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Card 4: Laboratory Substrate Telemetry -->
+                        <Border Grid.Column="3" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="5,0,0,0" Padding="10,8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="7" Height="7" Fill="#3B82F6" Margin="0,0,4,0" />
-                                    <TextBlock Text="External" FontSize="8.5" Foreground="#94A3B8" />
+                                    <TextBlock Text="LABORATORY SUBSTRATE" FontSize="8" FontWeight="Bold" Foreground="#64748B" />
+                                    <TextBlock Text=" · WSL2 Kali" FontSize="8" FontWeight="SemiBold" Foreground="{StaticResource BrushEmerald}" Margin="4,0,0,0" />
                                 </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <UniformGrid Grid.Row="1" Columns="3" VerticalAlignment="Center">
+                                    <StackPanel>
+                                        <TextBlock Text="CPU" FontSize="7.5" Foreground="#64748B" />
+                                        <TextBlock x:Name="txtCpu" Text="28%" FontSize="11" FontWeight="Bold" Foreground="#F1F5F9" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="RAM" FontSize="7.5" Foreground="#64748B" />
+                                        <TextBlock x:Name="txtRam" Text="5.1/16G" FontSize="11" FontWeight="Bold" Foreground="#F1F5F9" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="TOOLS" FontSize="7.5" Foreground="#64748B" />
+                                        <TextBlock x:Name="txtDisk" Text="24 Ready" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                    </StackPanel>
+                                </UniformGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
-                    <!-- Target Details Panel -->
-                    <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="6,0,0,0" Padding="12,10">
+                    <!-- Middle Split: Attack Surface Radar + Research Invariant -->
+                    <Grid Grid.Row="1" Margin="0,8,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="6*" />
+                            <ColumnDefinition Width="4*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Attack Surface Radar -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,5,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="32" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="24" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Header Tabs -->
+                                <Grid Grid.Row="0" Margin="10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="⊞ ATTACK SURFACE RADAR" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <TextBlock Text="Interactive Bézier Graph" FontSize="8.5" Foreground="#64748B" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button Content="+" Style="{StaticResource CyberButton}" Width="20" Height="20" Padding="0,0,0,0" Click="OnZoomInClick" Margin="0,0,2,0" />
+                                        <Button Content="—" Style="{StaticResource CyberButton}" Width="20" Height="20" Padding="0,0,0,0" Click="OnZoomOutClick" Margin="0,0,4,0" />
+                                        <Button Content="⛶" Style="{StaticResource CyberButton}" Width="20" Height="20" Padding="0,0,0,0" Click="OnResetGraphClick" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Canvas -->
+                                <controls:AttackSurfaceCanvas x:Name="graphCanvas" Grid.Row="1" />
+
+                                <!-- Legend -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource BrushCyan}" Margin="0,0,3,0" />
+                                    <TextBlock Text="Discovered" FontSize="8" Foreground="#94A3B8" Margin="0,0,10,0" />
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource BrushCrimson}" Margin="0,0,3,0" />
+                                    <TextBlock Text="Vulnerable" FontSize="8" Foreground="#94A3B8" Margin="0,0,10,0" />
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource BrushAmber}" Margin="0,0,3,0" />
+                                    <TextBlock Text="Exploitable" FontSize="8" Foreground="#94A3B8" Margin="0,0,10,0" />
+                                    <Ellipse Width="6" Height="6" Fill="{StaticResource BrushEmerald}" Margin="0,0,3,0" />
+                                    <TextBlock Text="Internal Service" FontSize="8" Foreground="#94A3B8" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Right: Active Scientific Invariant & Experiment Candidate -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="5,0,0,0" Padding="12,10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                    <TextBlock Text="ACTIVE RESEARCH INVARIANT" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                    <TextBlock Text="Formal Hypothesis &amp; Falsification Synthesis" FontSize="8" Foreground="#64748B" Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <!-- Hypothesis Box -->
+                                        <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <TextBlock Text="Hypothesis H-184" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11" />
+                                                    <Border Background="#064E3B" CornerRadius="3" Padding="4,1" Margin="8,0,0,0">
+                                                        <TextBlock Text="High Priority" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="Stale authorization state bypass via unvalidated session revocation token" Foreground="#F1F5F9" FontSize="9.5" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                                <Grid Margin="0,2">
+                                                    <TextBlock Text="Information Gain (ΔI)" FontSize="8.5" Foreground="#94A3B8" />
+                                                    <TextBlock Text="0.84 bits" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
+                                                </Grid>
+                                                <Grid Margin="0,2">
+                                                    <TextBlock Text="Novelty (MDL Score)" FontSize="8.5" Foreground="#94A3B8" />
+                                                    <TextBlock Text="0.72" FontSize="9" FontWeight="Bold" Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                                                </Grid>
+                                                <Grid Margin="0,2">
+                                                    <TextBlock Text="Risk Ceiling (Safety Bound)" FontSize="8.5" Foreground="#94A3B8" />
+                                                    <TextBlock Text="0.14 &lt; 0.20 (Allowed)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" HorizontalAlignment="Right" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Causal Invariant Rule -->
+                                        <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="CAUSAL INVARIANT" FontSize="8" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                <TextBlock Text="∀ req ∈ Replay(Token_revoked): Response.Status = 401 Unauthorized" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource BrushEmerald}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+
+                                <StackPanel Grid.Row="2">
+                                    <Button Content="⚡ Execute Falsification Probe" Style="{StaticResource CyberPrimaryButton}" Height="28" Margin="0,0,0,4" Click="OnRunFalsificationClick" />
+                                    <Button Content="📜 Seal Cryptographic Attestation" Style="{StaticResource CyberButton}" Height="26" Click="OnExportProofBundleClick" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Bottom: Live Laboratory Activity Stream -->
+                    <Border Grid.Row="2" Background="#060912" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="28" />
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="0" Text="TARGET DETAILS" FontSize="9" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,8" />
+                            <Border Grid.Row="0" Background="#0A0F1D" BorderBrush="#151E30" BorderThickness="0,0,0,1">
+                                <Grid Margin="10,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="LIVE MISSION TELEMETRY &amp; LABORATORY STREAM" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,10,0" />
+                                        <Border Background="#0C1B2E" CornerRadius="3" Padding="5,1">
+                                            <TextBlock Text="WSL2 · Kali Linux" FontSize="8" Foreground="{StaticResource BrushCyan}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="Auto-scroll" FontSize="8" Foreground="#64748B" Margin="0,0,8,0" />
+                                        <TextBlock Text="● Streaming" FontSize="8" Foreground="{StaticResource BrushEmerald}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
 
-                            <!-- Header -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-                                <TextBlock Text="🌐" FontSize="20" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <StackPanel>
-                                    <TextBlock x:Name="txtDetailHost" Text="example.com" FontSize="13" FontWeight="Bold" Foreground="#F1F5F9" />
-                                    <TextBlock x:Name="txtDetailIp" Text="192.168.1.10" FontSize="10" Foreground="#64748B" FontFamily="Consolas" />
-                                </StackPanel>
-                            </StackPanel>
-
-                            <!-- Metadata Table -->
-                            <StackPanel Grid.Row="2">
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="Status" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="Active" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="Technology" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="Nginx 1.24.0" FontSize="9.5" Foreground="#CBD5E1" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="WAF" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="Not Detected" FontSize="9.5" Foreground="#CBD5E1" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="Open Ports" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="80, 443, 22, 3306, 6379" FontSize="9.5" FontFamily="Consolas" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="OS" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="Linux (Ubuntu)" FontSize="9.5" Foreground="#CBD5E1" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,2">
-                                    <TextBlock Text="Location" FontSize="9.5" Foreground="#94A3B8" />
-                                    <TextBlock Text="🇺🇸 United States" FontSize="9.5" Foreground="#CBD5E1" HorizontalAlignment="Right" />
-                                </Grid>
-                                <Grid Margin="0,3">
-                                    <TextBlock Text="Risk Score" FontSize="9.5" FontWeight="SemiBold" Foreground="#94A3B8" />
-                                    <TextBlock Text="8.7 / 10" FontSize="11" FontWeight="Bold" Foreground="{StaticResource BrushCrimson}" HorizontalAlignment="Right" />
-                                </Grid>
-                            </StackPanel>
-
-                            <!-- Quick Action Buttons -->
-                            <StackPanel Grid.Row="3" Margin="0,8,0,0">
-                                <TextBlock Text="QUICK ACTIONS" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,5" />
-                                <UniformGrid Columns="3" Margin="0,0,0,4">
-                                    <Button Content="Run Nmap" Style="{StaticResource CyberButton}" Margin="1" Click="OnRunNmapAction" />
-                                    <Button Content="Directory Scan" Style="{StaticResource CyberButton}" Margin="1" Click="OnDirScanAction" />
-                                    <Button Content="Find Subdomains" Style="{StaticResource CyberButton}" Margin="1" Click="OnSubdomainsAction" />
-                                </UniformGrid>
-                                <UniformGrid Columns="3">
-                                    <Button Content="Check Vulns" Style="{StaticResource CyberButton}" Margin="1" Click="OnCheckVulnsAction" />
-                                    <Button Content="Exploit Search" Style="{StaticResource CyberButton}" Margin="1" Click="OnExploitSearchAction" />
-                                    <Button Content="Open in Terminal" Style="{StaticResource CyberButton}" Margin="1" Click="OnOpenInTerminalAction" />
-                                </UniformGrid>
-                            </StackPanel>
+                            <ScrollViewer x:Name="termScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="8,4">
+                                <TextBox x:Name="txtTerminalOutput" Background="Transparent" Foreground="#A7F3D0" BorderThickness="0" FontFamily="Consolas, Cascadia Code, monospace" FontSize="9.5" TextWrapping="Wrap" IsReadOnly="True" />
+                            </ScrollViewer>
                         </Grid>
                     </Border>
                 </Grid>
 
-                <!-- Row 3: Bottom Split Section (Terminal + Scan Results + Evidence) -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <!-- Integrated Terminal -->
-                        <ColumnDefinition Width="4*" />
-                        <!-- Scan Results / Findings -->
-                        <ColumnDefinition Width="3.5*" />
-                        <!-- Evidence Gallery -->
-                        <ColumnDefinition Width="2.5*" />
-                    </Grid.ColumnDefinitions>
+                <!-- ========== VIEW 2: ATTACK SURFACE & ASSETS ========== -->
+                <Grid x:Name="viewSurface" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="1.2*" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                    <!-- Panel 1: Integrated Terminal (WSL2 - Kali Linux) -->
-                    <Border Grid.Column="0" Background="#060911" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,4,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="30" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="28" />
-                            </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🌐 ATTACK SURFACE EXPLORER" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                        <TextBlock Text="· Discovered Topology, Subdomains &amp; Port Invariants" FontSize="9.5" Foreground="#64748B" Margin="10,2,0,0" />
+                    </StackPanel>
 
-                            <!-- Header Bar -->
-                            <Border Grid.Row="0" Background="#0C1322" BorderBrush="#182338" BorderThickness="0,0,0,1">
-                                <Grid Margin="8,0">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="INTEGRATED TERMINAL (WSL2 - Kali Linux)" FontSize="9" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,10,0" />
-                                        <Border Background="#101C30" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="3" Padding="6,1">
-                                            <TextBlock Text="kali ✕" FontSize="8.5" Foreground="{StaticResource BrushCyan}" />
-                                        </Border>
-                                        <TextBlock Text="+" FontSize="11" Foreground="#64748B" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Hand" />
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="—" FontSize="10" Foreground="#64748B" Margin="0,0,6,0" Cursor="Hand" />
-                                        <TextBlock Text="□" FontSize="10" Foreground="#64748B" Margin="0,0,6,0" Cursor="Hand" />
-                                        <TextBlock Text="✕" FontSize="10" Foreground="#64748B" Cursor="Hand" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <!-- Terminal Text Console -->
-                            <ScrollViewer x:Name="termScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="8,6">
-                                <TextBox x:Name="txtTerminalOutput" Background="Transparent" Foreground="#A7F3D0" BorderThickness="0" FontFamily="Consolas, Cascadia Code, monospace" FontSize="10" TextWrapping="Wrap" IsReadOnly="True" />
-                            </ScrollViewer>
-
-                            <!-- Terminal Input Line -->
-                            <Border Grid.Row="2" Background="#080C16" BorderBrush="#162034" BorderThickness="0,1,0,0">
-                                <Grid Margin="6,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="$ " Foreground="{StaticResource BrushCyan}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" />
-                                    <TextBox x:Name="txtTerminalInput" Grid.Column="1" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0" FontFamily="Consolas" FontSize="10.5" VerticalAlignment="Center" KeyDown="OnTerminalInputKeyDown" />
-                                </Grid>
-                            </Border>
-                        </Grid>
+                    <!-- Top Canvas View in Surface Tab -->
+                    <Border Grid.Row="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,0,8">
+                        <controls:AttackSurfaceCanvas x:Name="surfaceTabCanvas" />
                     </Border>
 
-                    <!-- Panel 2: Scan Results / Findings Tabs -->
-                    <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3,0,3,0">
+                    <!-- Bottom Split: Subdomains and Ports -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Discovered Subdomains -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,4,0" Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="DISCOVERED SUBDOMAINS" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,6" />
+                                <ListBox x:Name="lstSubdomains" Grid.Row="1" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,5">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="130" />
+                                                        <ColumnDefinition Width="70" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Host}" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" FontSize="10" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Ip}" FontFamily="Consolas" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Technology}" Foreground="#64748B" FontSize="8.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <Border Grid.Column="3" Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding Status}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Open Ports and Services -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4,0,0,0" Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="SERVICE &amp; PORT FINGERPRINTS" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,6" />
+                                <ListBox x:Name="lstPorts" Grid.Row="1" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,5">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="75" />
+                                                        <ColumnDefinition Width="55" />
+                                                        <ColumnDefinition Width="70" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Port}" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="9.5" VerticalAlignment="Center" />
+                                                    <Border Grid.Column="1" Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding State}" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Service}" FontWeight="SemiBold" Foreground="#F1F5F9" FontSize="9.5" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Version}" FontFamily="Consolas" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ========== VIEW 3: RESEARCH FRONTIER & HYPOTHESES ========== -->
+                <Grid x:Name="viewResearch" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="142" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="⚡ SCIENTIFIC RESEARCH FRONTIER" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                            <TextBlock Text="· 50+ Veteran Security Researcher Ensemble Council" FontSize="9.5" Foreground="#64748B" Margin="10,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="⚡ Deliberate Council" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnDeliberateCouncilClick" />
+                            <Button Content="⚠️ Simulate Approval Gate" Style="{StaticResource CyberButton}" BorderBrush="{StaticResource BrushCrimson}" Foreground="{StaticResource BrushCrimson}" Click="OnSimulateApprovalGateClick" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 50+ Veteran Researcher Ensemble Council Row -->
+                    <Border Grid.Row="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,0,8" Padding="10">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="30" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-
-                            <!-- Header Tabs -->
-                            <Border Grid.Row="0" Background="#0C1322" BorderBrush="#182338" BorderThickness="0,0,0,1">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                    <Border Background="#101C30" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,4,0">
-                                        <TextBlock Text="SCAN RESULTS" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🧠 50+ VETERAN SECURITY RESEARCHER ENSEMBLE COUNCIL (6 SPECIALIZED DIVISIONS)" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                                        <TextBlock Text="COLLABORATIVE INVARIANT REASONING" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
                                     </Border>
-                                    <Button Content="VULNERABILITIES (12)" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Padding="6,2" FontSize="8.5" />
-                                    <Button Content="EXPLOIT DB" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Padding="6,2" FontSize="8.5" />
-                                    <Button Content="NOTES" Style="{StaticResource CyberButton}" Padding="6,2" FontSize="8.5" />
                                 </StackPanel>
-                            </Border>
-
-                            <!-- Findings DataGrid / List -->
-                            <ListBox x:Name="lstFindings" Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="4" MouseDoubleClick="OnFindingItemDoubleClick">
+                                <TextBlock x:Name="txtCouncilConsensus" Text="Consensus Score: 94.2% · Formal Logic &amp; Exploit Synthesis" FontSize="8" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                            </Grid>
+                            <ListBox x:Name="lstSpecialists" Grid.Row="1" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="6,4">
+                                        <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Width="205" Margin="0,0,8,0" Padding="8">
                                             <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="20" />
-                                                    <ColumnDefinition Width="65" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="80" />
-                                                    <ColumnDefinition Width="15" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Index}" Foreground="#64748B" FontSize="9" VerticalAlignment="Center" />
-                                                <Border Grid.Column="1" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
-                                                    <TextBlock Text="{Binding Severity}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
-                                                </Border>
-                                                <TextBlock Grid.Column="2" Text="{Binding Title}" Foreground="#F1F5F9" FontSize="9.5" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="3" Text="{Binding Target}" Foreground="{StaticResource BrushCyan}" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="4" Text="›" Foreground="#64748B" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid Grid.Row="0">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#F8FAFC" FontSize="9" TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,4">
+                                                    <Border Background="#1E1B4B" CornerRadius="3" Padding="4,1" Margin="0,0,4,0">
+                                                        <TextBlock Text="20+ Yrs Exp" FontSize="7" FontWeight="Bold" Foreground="{StaticResource BrushViolet}" />
+                                                    </Border>
+                                                    <Border Background="#064E3B" CornerRadius="3" Padding="4,1">
+                                                        <TextBlock Text="{Binding Status}" FontSize="7" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="2" Text="{Binding Invariant}" Foreground="#94A3B8" FontSize="7.5" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="45" Margin="0,0,0,4" />
+                                                <Grid Grid.Row="3">
+                                                    <TextBlock Text="Confidence:" FontSize="7.5" Foreground="#64748B" />
+                                                    <TextBlock Text="{Binding Confidence, StringFormat='{}{0:P0}'}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
+                                                </Grid>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -615,187 +657,872 @@
                         </Grid>
                     </Border>
 
-                    <!-- Panel 3: Evidence & Screenshots -->
-                    <Border Grid.Column="2" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4,0,0,0" Padding="8">
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.3*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Hypotheses List -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,5,0" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="HYPOTHESIS QUEUE (SORTED BY EXPECTED INFORMATION GAIN)" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,8" />
+                                <ListBox x:Name="lstHypotheses" Grid.Row="1" Background="Transparent" BorderThickness="0" SelectionChanged="OnHypothesisSelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="65" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="80" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Background="#0E2238" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Id}" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" Foreground="#F1F5F9" FontSize="9.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Target}" FontFamily="Consolas" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <Border Grid.Column="3" Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding InfoGain, StringFormat='ΔI: {0:F2}'}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Hypothesis Detail & Invariant Synthesizer -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="5,0,0,0" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="HYPOTHESIS MATHEMATICAL SPECIFICATION" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,0,10" />
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock x:Name="txtHypothesisDetailId" Text="Selected: H-184" FontWeight="Bold" Foreground="#F8FAFC" FontSize="11" />
+                                        <TextBlock x:Name="txtHypothesisDetailTitle" Text="Stale authorization state bypass via token refresh invariant failure" Foreground="{StaticResource BrushCyan}" FontSize="9.5" Margin="0,4,0,8" TextWrapping="Wrap" />
+                                        <TextBlock Text="Information Theory Formulation:" FontSize="8" FontWeight="Bold" Foreground="#64748B" Margin="0,4,0,2" />
+                                        <TextBlock Text="ΔI(E) = H(State) - E[H(State | Experiment_Outcome)]" FontFamily="Consolas" FontSize="9" Foreground="#38BDF8" />
+                                        <TextBlock Text="Novelty (MDL): 0.72  |  Risk Ceiling: 0.14" FontSize="9" Foreground="#94A3B8" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Content="▶ Execute Falsification Experiment" Style="{StaticResource CyberPrimaryButton}" Height="30" Margin="0,0,0,6" Click="OnRunFalsificationClick" />
+                                <Button Content="Export Mathematical Proof Bundle" Style="{StaticResource CyberButton}" Height="28" Click="OnExportProofBundleClick" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ========== VIEW 4: WORLD MODEL ========== -->
+                <Grid x:Name="viewWorldModel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🧠 DETERMINISTIC WORLD MODEL" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                        <TextBlock Text="· Causal Invariants, Topology Entities &amp; Trust Boundaries" FontSize="9.5" Foreground="#64748B" Margin="10,2,0,0" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Entities -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,5,0" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="WORLD MODEL ENTITIES &amp; TOPOLOGY" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,8" />
+                                <ListBox x:Name="lstWorldEntities" Grid.Row="1" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="95" />
+                                                        <ColumnDefinition Width="130" />
+                                                        <ColumnDefinition Width="85" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#F1F5F9" FontSize="9.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <Border Grid.Column="1" Background="#140E26" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Type}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushViolet}" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="2" Text="{Binding InvariantRule}" FontFamily="Consolas" Foreground="{StaticResource BrushCyan}" FontSize="8.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Boundary}" Foreground="#94A3B8" FontSize="8.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Invariants Specification -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="5,0,0,0" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="DETERMINISTIC SECURITY BOUNDARIES" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,0,8" />
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="INV-01: Perimeter Invariant" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" FontSize="10" />
+                                        <TextBlock Text="No external entity without active bearer token may transition state in MySQL datastore." FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="INV-02: Scope Boundary" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="10" />
+                                        <TextBlock Text="Strict deterministic gate: All probes limited to *.example.com (192.168.1.0/24). Disallowed networks blocked at driver level." FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="INV-03: Cryptographic Attestation" FontWeight="Bold" Foreground="{StaticResource BrushViolet}" FontSize="10" />
+                                        <TextBlock Text="All findings must possess an unforgeable Merkle proof linking input stimulus to state delta." FontSize="9" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ========== VIEW 5: EXPERIMENTS ========== -->
+                <Grid x:Name="viewExperiments" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🧪 EXPERIMENT SYNTHESIZER &amp; FALSIFICATION RUNNER" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Experiment Queue -->
+                        <Border Grid.Column="0" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,5,0" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="SYNTHESIZED EXPERIMENTS MATRIX" FontSize="8.5" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,8" />
+                                <ListBox x:Name="lstExperiments" Grid.Row="1" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="100" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Background="#140E26" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Id}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushViolet}" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="1" Text="{Binding HypothesisId}" Foreground="{StaticResource BrushCyan}" FontSize="9" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Action}" Foreground="#E2E8F0" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                                                    <Border Grid.Column="3" Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                                        <TextBlock Text="{Binding PolicyVerdict}" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Sandbox Runner -->
+                        <Border Grid.Column="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="5,0,0,0" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="SANDBOX FALSIFICATION RUNNER" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,0,8" />
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="Target: /auth/refresh" FontWeight="Bold" Foreground="#F8FAFC" FontSize="10.5" />
+                                        <TextBlock Text="Stimulus: Clock skewed token replay probe" FontSize="9" Foreground="#94A3B8" Margin="0,2,0,0" />
+                                        <TextBlock Text="Deterministic Policy: Safe (No state alteration)" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Content="▶ Run Experiment in WSL2 Sandbox" Style="{StaticResource CyberPrimaryButton}" Height="30" Margin="0,0,0,8" Click="OnRunExperimentSandboxClick" />
+                                <TextBox x:Name="txtExperimentSandboxLog" Background="#04060B" Foreground="#34D399" BorderBrush="#151E30" BorderThickness="1" FontFamily="Consolas" FontSize="9.5" Height="140" TextWrapping="Wrap" IsReadOnly="True" Margin="0,0,0,8" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ========== VIEW 6: FINDINGS & VULNERABILITIES ========== -->
+                <Grid x:Name="viewFindings" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="🛡 VERIFIED FINDINGS &amp; CERTIFIED VULNERABILITIES" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,14,0" />
+                        </StackPanel>
+
+                        <!-- Severity Filter Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="All (180)" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnFindingFilterClick" Tag="All" />
+                            <Button Content="Critical (12)" Style="{StaticResource CyberCrimsonButton}" Margin="0,0,4,0" Click="OnFindingFilterClick" Tag="Critical" />
+                            <Button Content="High (28)" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnFindingFilterClick" Tag="High" />
+                            <Button Content="Medium (47)" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnFindingFilterClick" Tag="Medium" />
+                            <Button Content="Low (93)" Style="{StaticResource CyberButton}" Click="OnFindingFilterClick" Tag="Low" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Findings Table -->
+                    <Border Grid.Row="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Padding="6">
+                        <ListBox x:Name="lstFindings" Background="Transparent" BorderThickness="0" MouseDoubleClick="OnFindingItemDoubleClick" SelectionChanged="OnFindingSelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#090E1A" BorderBrush="#162034" BorderThickness="1" CornerRadius="4" Margin="0,1.5" Padding="8,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="25" />
+                                                <ColumnDefinition Width="70" />
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="70" />
+                                                <ColumnDefinition Width="90" />
+                                                <ColumnDefinition Width="20" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Index}" Foreground="#64748B" FontSize="9" VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Severity}" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text="{Binding Title}" Foreground="#F1F5F9" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Target}" Foreground="{StaticResource BrushCyan}" FontSize="9.5" FontFamily="Consolas" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Cwe}" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center" />
+                                            <Border Grid.Column="5" Background="#052E20" CornerRadius="3" Padding="4,1" HorizontalAlignment="Left">
+                                                <TextBlock Text="Attested ✓" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="6" Text="›" Foreground="#64748B" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+
+                <!-- ========== VIEW 7: EVIDENCE STUDIO ========== -->
+                <Grid x:Name="viewEvidence" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📜 EVIDENCE ATTESTATION STUDIO" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                            <TextBlock Text="· Cryptographically Sealed Merkle Proof Bundles" FontSize="9.5" Foreground="#64748B" Margin="10,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Content="✓ Verify Merkle Chain" Style="{StaticResource CyberButton}" Margin="0,0,6,0" Click="OnVerifyMerkleProofClick" />
+                            <Button Content="📦 Export Sealed Bundle" Style="{StaticResource CyberPrimaryButton}" Click="OnExportProofBundleClick" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Proof Cards Grid -->
+                        <UniformGrid Grid.Row="0" Columns="2" Rows="2">
+                            <!-- Proof 1: SQL Injection -->
+                            <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4" Padding="10" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <TextBlock Text="PROOF #01: SQL INJECTION" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCrimson}" />
+                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                            <TextBlock Text="SEALED ✓" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        </Border>
+                                    </Grid>
+                                    <Border Grid.Row="1" Background="#04060B" CornerRadius="4" Padding="8">
+                                        <TextBlock Text="POST /login HTTP/1.1&#x0a;Host: example.com&#x0a;Payload: ' OR 1=1--&#x0a;HTTP 200 OK (Bypass Success)&#x0a;Attested Session: admin (uid 0)" Foreground="#F87171" FontFamily="Consolas" FontSize="9" />
+                                    </Border>
+                                    <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                        <TextBlock Text="Root: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" FontSize="7.5" FontFamily="Consolas" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Proof 2: Admin Panel -->
+                            <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4" Padding="10" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <TextBlock Text="PROOF #02: EXPOSED SUPERUSER CONSOLE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                            <TextBlock Text="SEALED ✓" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        </Border>
+                                    </Grid>
+                                    <Border Grid.Row="1" Background="#04060B" CornerRadius="4" Padding="8">
+                                        <TextBlock Text="GET /admin/console HTTP/1.1&#x0a;Host: example.com&#x0a;Role: Superuser Access Granted&#x0a;Full cluster control reachable" Foreground="{StaticResource BrushCyan}" FontFamily="Consolas" FontSize="9" />
+                                    </Border>
+                                    <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                        <TextBlock Text="Root: a6c4832b918f0322d718ec84b3e81ff0725a805847e0ef7c290133ad1c1611d8" FontSize="7.5" FontFamily="Consolas" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Proof 3: Directory Traversal -->
+                            <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4" Padding="10" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <TextBlock Text="PROOF #03: SECRETS LEAK" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushAmber}" />
+                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                            <TextBlock Text="SEALED ✓" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        </Border>
+                                    </Grid>
+                                    <Border Grid.Row="1" Background="#04060B" CornerRadius="4" Padding="8">
+                                        <TextBlock Text="GET /files/backup.zip HTTP/1.1&#x0a;HTTP 200 OK&#x0a;Extracted database secrets &amp; API private keys" Foreground="{StaticResource BrushAmber}" FontFamily="Consolas" FontSize="9" />
+                                    </Border>
+                                    <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                        <TextBlock Text="Root: 7b29a1f8021c38e91aa795bb4f901cb001f3e76921b34909a83411a774b921ef" FontSize="7.5" FontFamily="Consolas" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Proof 4: Root RCE -->
+                            <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="4" Padding="10" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
+                                        <TextBlock Text="PROOF #04: REMOTE CODE EXECUTION" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
+                                            <TextBlock Text="SEALED ✓" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        </Border>
+                                    </Grid>
+                                    <Border Grid.Row="1" Background="#04060B" CornerRadius="4" Padding="8">
+                                        <TextBlock Text="POST /api/v1/users HTTP/1.1&#x0a;Output: uid=0(root) gid=0(root)&#x0a;Linux 5.15.0-x86_64 Ubuntu" Foreground="{StaticResource BrushEmerald}" FontFamily="Consolas" FontSize="9" />
+                                    </Border>
+                                    <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                                        <TextBlock Text="Root: 3f9901b072895123490b8e762c9381ea49f60032948671192837402938174620" FontSize="7.5" FontFamily="Consolas" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Bottom Merkle Tree Attestation Banner -->
+                        <Border Grid.Row="1" Background="#080D18" BorderBrush="#151D2E" BorderThickness="1" CornerRadius="5" Padding="10,8" Margin="4,4,4,0">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🔐 MERKLE ATTESTATION CHAIN: " FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                                    <TextBlock Text="4 Proofs Sealed · Cryptographically Validated · Zero Tampering" FontSize="9" Foreground="#CBD5E1" />
+                                </StackPanel>
+                                <TextBlock Text="Attestation Standard: RFC-6962 / DOGE Evidence Kernel" FontSize="8" Foreground="#64748B" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ========== VIEW 8: WSL2 TERMINAL ========== -->
+                <Grid x:Name="viewTerminal" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="32" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Terminal Presets Header -->
+                    <Grid Grid.Row="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="💻 WSL2 KALI LINUX INTERACTIVE TERMINAL" FontSize="12" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,12,0" />
+                            <Button Content="nmap -sV" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnTerminalPresetClick" Tag="nmap -sV example.com" />
+                            <Button Content="whoami" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnTerminalPresetClick" Tag="whoami" />
+                            <Button Content="uname -a" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnTerminalPresetClick" Tag="uname -a" />
+                            <Button Content="which nuclei" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnTerminalPresetClick" Tag="which nuclei" />
+                            <Button Content="python3 -V" Style="{StaticResource CyberButton}" Margin="0,0,4,0" Click="OnTerminalPresetClick" Tag="python3 --version" />
+                            <Button Content="Clear" Style="{StaticResource CyberButton}" Click="OnTerminalPresetClick" Tag="clear" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Big Terminal View -->
+                    <Border Grid.Row="1" Background="#04060C" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="0,0,0,6">
+                        <ScrollViewer x:Name="dedicatedTermScrollViewer" VerticalScrollBarVisibility="Auto" Margin="10">
+                            <TextBox x:Name="txtDedicatedTermOutput" Background="Transparent" Foreground="#34D399" BorderThickness="0" FontFamily="Consolas, Cascadia Code, monospace" FontSize="10.5" TextWrapping="Wrap" IsReadOnly="True" />
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Input Bar -->
+                    <Border Grid.Row="2" Background="#090E1A" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="5">
+                        <Grid Margin="8,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="$ " Foreground="{StaticResource BrushCyan}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                            <TextBox x:Name="txtDedicatedTermInput" Grid.Column="1" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" KeyDown="OnDedicatedTermInputKeyDown" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ========== VIEW 9: TOOLBOX ========== -->
+                <Grid x:Name="viewToolbox" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="220" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="🧰 WSL2 SECURITY TOOL ARSENAL" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" />
+
+                    <!-- Tool Cards Grid -->
+                    <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,8">
+                        <!-- Tool 1: Nmap -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Nmap 7.98" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Network mapper &amp; port auditor" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Run Port Audit" Style="{StaticResource CyberButton}" Click="OnToolNmapClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tool 2: Ffuf -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Ffuf" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Fast web fuzzer &amp; directory buster" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Fuzz Directories" Style="{StaticResource CyberButton}" Click="OnToolFfufClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tool 3: Nuclei -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Nuclei" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Vulnerability template scanner" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Scan Templates" Style="{StaticResource CyberButton}" Click="OnToolNucleiClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tool 4: Dalfox -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Dalfox" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Parameter analysis &amp; XSS scanner" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Scan Parameters" Style="{StaticResource CyberButton}" Click="OnToolDalfoxClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tool 5: Subfinder -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Subfinder" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Fast passive subdomain enumerator" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Find Subdomains" Style="{StaticResource CyberButton}" Click="OnToolSubfinderClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tool 6: SQLmap -->
+                        <Border Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Margin="3" Padding="10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="SQLmap" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" FontSize="11.5" />
+                                    <Border Background="#064E3B" CornerRadius="3" Padding="3,1" Margin="6,0,0,0">
+                                        <TextBlock Text="INSTALLED" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="Automatic SQL injection tester" FontSize="8.5" Foreground="#64748B" Margin="0,2,0,8" />
+                                <Button Content="Test SQL Invariant" Style="{StaticResource CyberButton}" Click="OnToolSqlmapClick" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Toolbox Execution Log -->
+                    <Border Grid.Row="2" Background="#04060C" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Padding="8">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="24" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-
-                            <Grid Grid.Row="0">
-                                <TextBlock Text="EVIDENCE &amp; SCREENSHOTS" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
-                                <TextBlock Text="View All" FontSize="8.5" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" Cursor="Hand" MouseLeftButtonDown="OnViewAllEvidenceClick" />
-                            </Grid>
-
-                            <!-- Evidence Cards Grid -->
-                            <UniformGrid Grid.Row="1" Columns="2" Rows="2" Margin="0,4,0,0">
-                                <!-- Proof 1 -->
-                                <Border Background="#090E1A" BorderBrush="#1A253C" BorderThickness="1" CornerRadius="4" Margin="2" Padding="5" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <Border Background="#04060C" CornerRadius="3" Padding="4">
-                                            <TextBlock Text="[SQLi] ' OR 1=1--&#x0a;HTTP 200 OK&#x0a;Root Admin" Foreground="{StaticResource BrushCrimson}" FontFamily="Consolas" FontSize="7.5" />
-                                        </Border>
-                                        <StackPanel Grid.Row="1" Margin="0,3,0,0">
-                                            <TextBlock Text="sql_injection_proof.png" FontSize="8" FontWeight="SemiBold" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="2 mins ago" FontSize="7" Foreground="#64748B" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Proof 2 -->
-                                <Border Background="#090E1A" BorderBrush="#1A253C" BorderThickness="1" CornerRadius="4" Margin="2" Padding="5" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <Border Background="#04060C" CornerRadius="3" Padding="4">
-                                            <TextBlock Text="/admin/console&#x0a;System: Superuser&#x0a;Privilege: Granted" Foreground="{StaticResource BrushCyan}" FontFamily="Consolas" FontSize="7.5" />
-                                        </Border>
-                                        <StackPanel Grid.Row="1" Margin="0,3,0,0">
-                                            <TextBlock Text="admin_panel.png" FontSize="8" FontWeight="SemiBold" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="5 mins ago" FontSize="7" Foreground="#64748B" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Proof 3 -->
-                                <Border Background="#090E1A" BorderBrush="#1A253C" BorderThickness="1" CornerRadius="4" Margin="2" Padding="5" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <Border Background="#04060C" CornerRadius="3" Padding="4">
-                                            <TextBlock Text="Index of /files/&#x0a;▸ backup.zip&#x0a;▸ secrets.json" Foreground="{StaticResource BrushAmber}" FontFamily="Consolas" FontSize="7.5" />
-                                        </Border>
-                                        <StackPanel Grid.Row="1" Margin="0,3,0,0">
-                                            <TextBlock Text="directory_listing.png" FontSize="8" FontWeight="SemiBold" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="8 mins ago" FontSize="7" Foreground="#64748B" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Proof 4 -->
-                                <Border Background="#090E1A" BorderBrush="#1A253C" BorderThickness="1" CornerRadius="4" Margin="2" Padding="5" Cursor="Hand" MouseLeftButtonDown="OnEvidenceCardClick">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <Border Background="#04060C" CornerRadius="3" Padding="4">
-                                            <TextBlock Text="uid=0(root) gid=0&#x0a;Linux 5.15.0&#x0a;# Proof Sealed" Foreground="{StaticResource BrushEmerald}" FontFamily="Consolas" FontSize="7.5" />
-                                        </Border>
-                                        <StackPanel Grid.Row="1" Margin="0,3,0,0">
-                                            <TextBlock Text="rce_output.png" FontSize="8" FontWeight="SemiBold" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="12 mins ago" FontSize="7" Foreground="#64748B" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </UniformGrid>
+                            <TextBlock Text="TOOL EXECUTION OUTPUT (WSL2 STREAM)" FontSize="8.5" FontWeight="Bold" Foreground="#64748B" />
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <TextBox x:Name="txtToolOutput" Background="Transparent" Foreground="#A7F3D0" BorderThickness="0" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap" IsReadOnly="True" />
+                            </ScrollViewer>
                         </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ========== VIEW 10: POLICY & AUTONOMY ========== -->
+                <Grid x:Name="viewAutonomy" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="36" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="⚙ AUTONOMY GATES &amp; DETERMINISTIC SAFETY POLICY" FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" />
+
+                    <Border Grid.Row="1" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="6" Padding="16">
+                        <StackPanel MaxWidth="680" HorizontalAlignment="Left">
+                            <TextBlock Text="AUTONOMY POLICY LEVEL (1 to 5)" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,0,6" />
+                            <TextBlock Text="Controls the bounds of autonomous experiment synthesis and execution:" FontSize="9" Foreground="#94A3B8" Margin="0,0,0,10" />
+                            <Slider x:Name="autonomySlider" Minimum="1" Maximum="5" Value="3" TickPlacement="BottomRight" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,12" ValueChanged="OnAutonomyChanged" />
+
+                            <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,0,0,15">
+                                <StackPanel>
+                                    <TextBlock x:Name="txtAutonomyLevelTitle" Text="Level 3: Low-Risk Authorized Probing" FontWeight="Bold" Foreground="#F8FAFC" FontSize="11" />
+                                    <TextBlock x:Name="txtAutonomyLevelDesc" Text="Executes read-only and non-destructive probes autonomously. State-changing experiments require explicit approval." Foreground="#94A3B8" FontSize="9.5" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="RESOURCE &amp; RATE CEILINGS" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,6,0,6" />
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Request Budget Ceiling" FontSize="9.5" Foreground="#CBD5E1" />
+                                <TextBlock Text="5,000 requests" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="Rate Limit" FontSize="9.5" Foreground="#CBD5E1" />
+                                <TextBlock Text="20 req / sec" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Margin="0,0,0,14">
+                                <TextBlock Text="Scope Enforcement" FontSize="9.5" Foreground="#CBD5E1" />
+                                <TextBlock Text="STRICT (Subdomains &amp; IPs)" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Grid>
 
-            <!-- ==================== FAR RIGHT AI ASSISTANT PANEL ==================== -->
-            <Border Grid.Column="2" Background="#070B14" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1,0,0,0" Padding="12,10">
+            <!-- ==================== RIGHT INSPECTOR / AI PANEL ==================== -->
+            <Border Grid.Column="2" Background="#070A14" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1,0,0,0" Padding="10,8">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <!-- Header -->
-                        <RowDefinition Height="Auto" />
-                        <!-- Chat History -->
+                        <!-- Tab Selector Header -->
+                        <RowDefinition Height="28" />
+                        <!-- Tab Content -->
                         <RowDefinition Height="*" />
-                        <!-- Quick Suggestions -->
-                        <RowDefinition Height="Auto" />
-                        <!-- Input Box -->
-                        <RowDefinition Height="Auto" />
-                        <!-- LLM Footer -->
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Header -->
-                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <!-- Tab Switcher -->
+                    <Grid Grid.Row="0" Margin="0,0,0,6">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🤖 AI SECURITY ASSISTANT" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                            <Border x:Name="tabBtnInspector" Background="#0E2238" BorderBrush="{StaticResource BrushCyan}" BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,0,4,0" Cursor="Hand" MouseLeftButtonDown="OnTabInspectorClick">
+                                <TextBlock Text="🔍 INSPECTOR" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" />
+                            </Border>
+                            <Border x:Name="tabBtnAi" Background="Transparent" CornerRadius="4" Padding="8,3" Cursor="Hand" MouseLeftButtonDown="OnTabAiClick">
+                                <TextBlock Text="🤖 AI COPILOT" FontSize="8.5" FontWeight="SemiBold" Foreground="#94A3B8" />
+                            </Border>
                         </StackPanel>
-                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" HorizontalAlignment="Right">
-                            <TextBlock Text="● Online" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
-                        </Border>
+                        <!-- Panel Toggle -->
+                        <TextBlock Text="⇥" FontSize="11" Foreground="#64748B" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonDown="OnToggleRightPanelClick" />
                     </Grid>
 
-                    <!-- Chat History -->
-                    <ScrollViewer x:Name="aiChatScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
-                        <StackPanel x:Name="aiChatPanel">
-                            <!-- Welcome bubble -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Border Background="#1E293B" CornerRadius="12" Width="24" Height="24" Margin="0,0,8,0" VerticalAlignment="Top">
-                                    <TextBlock Text="👾" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <!-- TAB 1: INSPECTOR PANEL -->
+                    <Grid x:Name="panelInspector" Grid.Row="1" Visibility="Visible">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="SELECTED ENTITY SPECIFICATION" FontSize="8" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,6" />
+
+                                <!-- Selected Target / Node Header -->
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock x:Name="txtDetailHost" Text="example.com" FontSize="12.5" FontWeight="Bold" Foreground="#F1F5F9" />
+                                        <TextBlock x:Name="txtDetailIp" Text="192.168.1.10" FontSize="9.5" Foreground="#64748B" FontFamily="Consolas" Margin="0,2,0,0" />
+                                        <Border Background="#064E3B" CornerRadius="3" Padding="4,1" Margin="0,4,0,0" HorizontalAlignment="Left">
+                                            <TextBlock Text="Active Research Subject" FontSize="7.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" />
+                                        </Border>
+                                    </StackPanel>
                                 </Border>
-                                <Border Background="#0E1626" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="8" Padding="10,8" MaxWidth="250">
-                                    <TextBlock Text="How can I help you today?" Foreground="#E2E8F0" FontSize="11" />
+
+                                <!-- Technical Details -->
+                                <TextBlock Text="TELEMETRY &amp; STATE" FontSize="8" FontWeight="Bold" Foreground="#64748B" Margin="0,4,0,4" />
+                                <Border Background="#090E1A" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <Grid Margin="0,2">
+                                            <TextBlock Text="Technology" FontSize="9" Foreground="#94A3B8" />
+                                            <TextBlock Text="Nginx 1.24.0" FontSize="9" Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                                        </Grid>
+                                        <Grid Margin="0,2">
+                                            <TextBlock Text="WAF Detection" FontSize="9" Foreground="#94A3B8" />
+                                            <TextBlock Text="Not Detected" FontSize="9" Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                                        </Grid>
+                                        <Grid Margin="0,2">
+                                            <TextBlock Text="Open Ports" FontSize="9" Foreground="#94A3B8" />
+                                            <TextBlock Text="80, 443, 22, 3306" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource BrushCyan}" HorizontalAlignment="Right" />
+                                        </Grid>
+                                        <Grid Margin="0,2">
+                                            <TextBlock Text="OS Fingerprint" FontSize="9" Foreground="#94A3B8" />
+                                            <TextBlock Text="Linux (Ubuntu)" FontSize="9" Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                                        </Grid>
+                                        <Grid Margin="0,2">
+                                            <TextBlock Text="Risk Score" FontSize="9" FontWeight="SemiBold" Foreground="#94A3B8" />
+                                            <TextBlock Text="8.7 / 10" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushCrimson}" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Quick Tool Trigger -->
+                                <TextBlock Text="DIRECT WORKSTATION ACTIONS" FontSize="8" FontWeight="Bold" Foreground="#64748B" Margin="0,4,0,4" />
+                                <UniformGrid Columns="2" Margin="0,0,0,4">
+                                    <Button Content="Scan Nmap" Style="{StaticResource CyberButton}" Margin="1" Click="OnRunNmapAction" />
+                                    <Button Content="Fuzz Dir" Style="{StaticResource CyberButton}" Margin="1" Click="OnDirScanAction" />
+                                </UniformGrid>
+                                <UniformGrid Columns="2">
+                                    <Button Content="Subdomains" Style="{StaticResource CyberButton}" Margin="1" Click="OnSubdomainsAction" />
+                                    <Button Content="Exploit DB" Style="{StaticResource CyberButton}" Margin="1" Click="OnExploitSearchAction" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Bottom Help Note -->
+                        <TextBlock Grid.Row="1" Text="Click any graph node or finding to inspect" FontSize="7.5" Foreground="#475569" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </Grid>
+
+                    <!-- TAB 2: AI COPILOT PANEL -->
+                    <Grid x:Name="panelAi" Grid.Row="1" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Chat Messages -->
+                        <ScrollViewer x:Name="aiChatScrollViewer" Grid.Row="0" VerticalScrollBarVisibility="Auto" Margin="0,0,0,6">
+                            <StackPanel x:Name="aiChatPanel">
+                                <Border Background="#0E1626" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,8">
+                                    <TextBlock Text="Greetings, Researcher. I am your DOGE Autonomous Security Copilot. I analyze information gain, synthesize experiment falsifications, and verify causal invariants." Foreground="#E2E8F0" FontSize="10" TextWrapping="Wrap" />
                                 </Border>
                             </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Quick Suggestion Chips -->
+                        <StackPanel Grid.Row="1" Margin="0,0,0,6">
+                            <Button Content="Analyze scan results &amp; attack paths" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,1.5" Click="OnSuggestionClick" />
+                            <Button Content="Explain SQL injection on /login" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,1.5" Click="OnSuggestionClick" />
+                            <Button Content="Synthesize experiment for H-184" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,1.5" Click="OnSuggestionClick" />
+                            <Button Content="Generate tamper-proof PoC report" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,1.5" Click="OnSuggestionClick" />
                         </StackPanel>
-                    </ScrollViewer>
 
-                    <!-- Quick Suggestions -->
-                    <StackPanel Grid.Row="2" Margin="0,0,0,8">
-                        <Button Content="Analyze these scan results" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                        <Button Content="Explain this vulnerability" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                        <Button Content="Suggest next steps" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                        <Button Content="Generate an exploit script" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                        <Button Content="Help me with privilege escalation" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                        <Button Content="Create a report for this target" Style="{StaticResource CyberButton}" HorizontalContentAlignment="Left" Margin="0,2" Click="OnSuggestionClick" />
-                    </StackPanel>
+                        <!-- Input Box -->
+                        <Border Grid.Row="2" Background="#0C1220" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="5">
+                            <Grid Margin="6,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtAiInput" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0" FontSize="10" VerticalAlignment="Center" Text="Ask anything about security..." GotFocus="OnAiInputGotFocus" LostFocus="OnAiInputLostFocus" KeyDown="OnAiInputKeyDown" />
+                                <Button Grid.Column="1" Content="➤" Style="{StaticResource CyberPrimaryButton}" Width="24" Height="24" Padding="0,0,0,0" Margin="4,0,0,0" Click="OnSendAiMessageClick" />
+                            </Grid>
+                        </Border>
 
-                    <!-- Chat Input Box -->
-                    <Border Grid.Row="3" Background="#0C1220" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="1" CornerRadius="5" Height="36">
-                        <Grid Margin="6,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="txtAiInput" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0" FontSize="10.5" VerticalAlignment="Center" Text="Ask anything about security..." GotFocus="OnAiInputGotFocus" LostFocus="OnAiInputLostFocus" KeyDown="OnAiInputKeyDown" />
-                            <Button Grid.Column="1" Content="➤" Style="{StaticResource CyberPrimaryButton}" Width="26" Height="26" Padding="0" Margin="4,0,0,0" Click="OnSendAiMessageClick" />
-                        </Grid>
-                    </Border>
-
-                    <!-- LLM Footer -->
-                    <TextBlock Grid.Row="4" Text="Powered by local/online LLM (Your choice)" FontSize="8" Foreground="#475569" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        <TextBlock Grid.Row="3" Text="Powered by local/online LLM (Offline First)" FontSize="7.5" Foreground="#475569" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>
 
         <!-- ==================== 3. BOTTOM STATUS BAR ==================== -->
-        <Border Grid.Row="2" Background="#04060C" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="0,1,0,0" Padding="10,0">
+        <Border Grid.Row="2" Background="#04060B" BorderBrush="{StaticResource BrushCardBorder}" BorderThickness="0,1,0,0" Padding="10,0">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="DOGE v1.0.0" FontSize="9" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,14,0" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,14,0">
-                        <TextBlock Text="● " Foreground="{StaticResource BrushEmerald}" FontSize="8" VerticalAlignment="Center" />
-                        <TextBlock Text="Offline Mode" FontSize="9" Foreground="#94A3B8" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBlock Text="Workspace: " FontSize="9" Foreground="#64748B" VerticalAlignment="Center" />
-                    <TextBlock x:Name="txtStatusWorkspace" Text="example.com" FontSize="9" FontWeight="SemiBold" Foreground="#CBD5E1" VerticalAlignment="Center" Margin="0,0,14,0" />
-                    <TextBlock Text="🛠 Tools Ready (" FontSize="9" Foreground="#64748B" VerticalAlignment="Center" />
-                    <TextBlock x:Name="txtStatusTools" Text="24" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" VerticalAlignment="Center" />
-                    <TextBlock Text=")" FontSize="9" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,14,0" />
-                    <TextBlock Text="⚡ WSL2: " FontSize="9" Foreground="#64748B" VerticalAlignment="Center" />
-                    <TextBlock x:Name="txtStatusWsl" Text="kali-linux" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushEmerald}" VerticalAlignment="Center" Margin="0,0,14,0" />
-                    <TextBlock Text="🤖 AI: Local (" FontSize="9" Foreground="#64748B" VerticalAlignment="Center" />
-                    <TextBlock x:Name="txtStatusAiModel" Text="llama3" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushViolet}" VerticalAlignment="Center" />
-                    <TextBlock Text=")" FontSize="9" Foreground="#64748B" VerticalAlignment="Center" />
+                    <TextBlock Text="DOGE v1.0.0" FontSize="8.5" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,12,0" />
+                    <TextBlock Text="● Named Pipe (\\.\pipe\doge-ipc)" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource BrushEmerald}" Margin="0,0,12,0" />
+                    <TextBlock Text="WSL2: " FontSize="8.5" Foreground="#64748B" />
+                    <TextBlock Text="kali-linux (Online)" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource BrushEmerald}" Margin="0,0,12,0" />
+                    <TextBlock Text="Target: " FontSize="8.5" Foreground="#64748B" />
+                    <TextBlock x:Name="txtStatusWorkspace" Text="example.com" FontSize="8.5" FontWeight="SemiBold" Foreground="#CBD5E1" Margin="0,0,12,0" />
+                    <TextBlock Text="Attestation: " FontSize="8.5" Foreground="#64748B" />
+                    <TextBlock Text="4 Merkle Proofs Sealed" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" Margin="0,0,12,0" />
+                    <TextBlock Text="Offline-First (100% Local)" FontSize="8" Foreground="#64748B" />
                 </StackPanel>
 
                 <!-- Right Quote -->
-                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="&quot;Knowledge is the ultimate exploit.&quot; — DOGE" FontSize="8.5" FontStyle="Italic" Foreground="#475569" />
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="&quot;Knowledge is the ultimate exploit.&quot; — DOGE" FontSize="8" FontStyle="Italic" Foreground="#475569" />
             </Grid>
         </Border>
+
+        <!-- ==================== 4. HUMAN-IN-THE-LOOP APPROVAL MODAL ==================== -->
+        <Grid x:Name="gridApprovalModal" Grid.RowSpan="3" Panel.ZIndex="1000" Visibility="Collapsed" Background="#E6030712">
+            <Border Background="#090E1A" BorderBrush="#F43F5E" BorderThickness="1.5" CornerRadius="8" Width="780" MaxHeight="700" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Header -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Target & Risk Badges -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Invariant / Provenance -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Stimulus / Payload Preview -->
+                        <RowDefinition Height="*" />
+                        <!-- Operator Notes Input -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Action Buttons -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Background="#3B1212" CornerRadius="6" Width="36" Height="36" Margin="0,0,12,0">
+                                <TextBlock Text="⚠️" FontSize="18" Foreground="#F43F5E" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="HUMAN-IN-THE-LOOP APPROVAL GATE" FontWeight="Bold" FontSize="13" Foreground="#F8FAFC" />
+                                    <Border Background="#450A0A" CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                                        <TextBlock Text="PAUSED FOR OPERATOR AUTHORIZATION" FontSize="8" FontWeight="Bold" Foreground="#F43F5E" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock x:Name="txtGateTitle" Text="Authorize Exploit Verification Probe" FontSize="9.5" Foreground="#94A3B8" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Content="✕" Style="{StaticResource CyberButton}" Width="24" Height="24" Padding="0,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Top" Click="OnCloseApprovalModalClick" />
+                    </Grid>
+
+                    <!-- Target & Risk Bar -->
+                    <Border Grid.Row="1" Background="#060913" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="TARGET ENDPOINT" FontSize="7.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock x:Name="txtGateTarget" Text="https://example.com/api/v1/auth" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource BrushCyan}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="RISK LEVEL" FontSize="7.5" FontWeight="Bold" Foreground="#64748B" />
+                                <Border Background="#450A0A" CornerRadius="3" Padding="6,2" Margin="0,2,0,0" HorizontalAlignment="Left">
+                                    <TextBlock x:Name="txtGateRisk" Text="HIGH RISK" FontSize="8.5" FontWeight="Bold" Foreground="#F43F5E" />
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="CONFIDENCE" FontSize="7.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock x:Name="txtGateConfidence" Text="95.0% Epistemic" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource BrushEmerald}" Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="PROVER ENGINE" FontSize="7.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock x:Name="txtGateTool" Text="CEGAR Sandbox" FontSize="9.5" FontWeight="SemiBold" Foreground="#CBD5E1" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Invariant / Reason -->
+                    <Border Grid.Row="2" Background="#0D1527" BorderBrush="#1D3050" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="ENSEMBLE RESEARCH COUNCIL DELIBERATION &amp; REASONING" FontSize="8" FontWeight="Bold" Foreground="{StaticResource BrushCyan}" Margin="0,0,0,4" />
+                            <TextBlock x:Name="txtGateReason" Text="The 50+ Researcher Ensemble Council reached 95% consensus that the target displays invariant divergence allowing authorization bypass." FontSize="9.5" Foreground="#E2E8F0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Technical Stimulus / Payload Preview -->
+                    <Grid Grid.Row="3" Margin="0,0,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="PROPOSED VERIFICATION STIMULUS / PAYLOAD" FontSize="8" FontWeight="Bold" Foreground="#94A3B8" />
+                            <TextBlock Text="(Non-Destructive Invariant Falsification)" FontSize="8" Foreground="#64748B" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <Border Grid.Row="1" Background="#030509" BorderBrush="#152033" BorderThickness="1" CornerRadius="5" Padding="10">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="160">
+                                <TextBox x:Name="txtGateCommand" Text="GET /api/v1/auth/verify?bypass=invariant_check HTTP/1.1&#x0a;Host: example.com&#x0a;X-Doge-Attestation: true" Background="Transparent" Foreground="{StaticResource BrushEmerald}" FontFamily="Consolas" FontSize="9.5" BorderThickness="0" IsReadOnly="True" TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <!-- Operator Notes Input -->
+                    <Border Grid.Row="4" Background="#060913" BorderBrush="#1C273E" BorderThickness="1" CornerRadius="5" Padding="8,4" Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Operator Directives: " FontSize="8.5" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox x:Name="txtOperatorNotes" Grid.Column="1" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0" FontSize="9.5" VerticalAlignment="Center" Text="Authorized for verification within stated rate limit" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Buttons -->
+                    <Grid Grid.Row="5">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Content="⏱ Postpone / Stand By" Style="{StaticResource CyberButton}" Height="34" Width="150" Click="OnPostponeGateClick" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="✕ REJECT / ABORT PROBE" Style="{StaticResource CyberButton}" BorderBrush="#F43F5E" Foreground="#F43F5E" Height="34" Width="180" Margin="0,0,10,0" Click="OnRejectGateClick" />
+                            <Button Content="✓ AUTHORIZE EXECUTION" Style="{StaticResource CyberPrimaryButton}" Height="34" Width="200" Click="OnApproveGateClick" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

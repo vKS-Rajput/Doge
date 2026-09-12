@@ -28,6 +28,9 @@ const (
 	EventExperimentExecuted    EventType = "experiment:executed"
 	EventFindingProven         EventType = "finding:proven"
 	EventProofSealed           EventType = "proof:sealed"
+	EventGatePending           EventType = "gate:pending"
+	EventGateResolved         EventType = "gate:resolved"
+	EventCouncilUpdated        EventType = "council:updated"
 )
 
 // RuntimeEvent represents a structured, timestamped system event.

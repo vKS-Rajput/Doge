@@ -1,13 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Tc9/I672cM4=",
+  "dgSpecHash": "FQKozkZlwG0=",
   "success": true,
   "projectFilePath": "C:\\Users\\k8659\\OneDrive\\Desktop\\Doge\\desktop\\DOGE.Desktop\\DOGE.Desktop.csproj",
-  "expectedPackageFiles": [
-    "C:\\Users\\k8659\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.11\\microsoft.net.illink.tasks.10.0.11.nupkg.sha512",
-    "C:\\Users\\k8659\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.11\\microsoft.netcore.app.runtime.win-x64.10.0.11.nupkg.sha512",
-    "C:\\Users\\k8659\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.11\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.11.nupkg.sha512",
-    "C:\\Users\\k8659\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.11\\microsoft.aspnetcore.app.runtime.win-x64.10.0.11.nupkg.sha512"
-  ],
+  "expectedPackageFiles": [],
   "logs": []
 }

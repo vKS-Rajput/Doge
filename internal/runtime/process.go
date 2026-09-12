@@ -94,8 +94,11 @@ func (m *ProcessManager) Stream(
 			wslDir := m.wsl.ConvertPathToWSL(req.WorkDir)
 			args = append(args, "--cd", wslDir)
 		}
-		args = append(args, "--", req.Command)
-		args = append(args, req.Args...)
+		fullCmd := req.Command
+		if len(req.Args) > 0 {
+			fullCmd = fullCmd + " " + strings.Join(req.Args, " ")
+		}
+		args = append(args, "--", "sh", "-c", fullCmd)
 	} else {
 		bin = req.Command
 		args = req.Args

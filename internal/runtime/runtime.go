@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/vKS-Rajput/doge/internal/coordinator"
+	"github.com/vKS-Rajput/doge/internal/gates"
+	"github.com/vKS-Rajput/doge/internal/reasoning"
 	"github.com/vKS-Rajput/doge/internal/report"
 	"github.com/vKS-Rajput/doge/internal/worldmodel"
 	"github.com/vKS-Rajput/doge/pkg/domain"
@@ -34,6 +37,8 @@ type Runtime struct {
 	broadcaster      *EventBroadcaster
 	ipcServer        *IPCServer
 	pipeServer       *PipeServer
+	gateManager      *gates.Manager
+	council          *reasoning.EnsembleCouncil
 
 	// Active State
 	workspace      *Workspace
@@ -54,6 +59,8 @@ func NewRuntime(cfg RuntimeConfig) *Runtime {
 	envManager := NewEnvironmentManager(wsl, broadcaster)
 	processManager := NewProcessManager(wsl, broadcaster)
 	workspaceManager := NewWorkspaceManager()
+	gateManager := gates.NewManager(cfg.WorkspaceRoot)
+	council := reasoning.NewEnsembleCouncil()
 
 	budget := cfg.RequestBudget
 	if budget <= 0 {
@@ -70,9 +77,23 @@ func NewRuntime(cfg RuntimeConfig) *Runtime {
 		governor:         governor,
 		lifecycle:        lifecycle,
 		broadcaster:      broadcaster,
+		gateManager:      gateManager,
+		council:          council,
 		provenFindings:   make([]domain.ProvenFinding, 0),
 		proofBundles:     make([]*report.ProofBundle, 0),
 	}
+
+	// Forward gate events to broadcaster
+	go func() {
+		sub := gateManager.Subscribe()
+		for g := range sub {
+			if g.Status == gates.StatusPending {
+				broadcaster.Broadcast(EventGatePending, "gates", fmt.Sprintf("Human Approval Required: %s", g.Title), map[string]any{"gate": g})
+			} else {
+				broadcaster.Broadcast(EventGateResolved, "gates", fmt.Sprintf("Gate %s status: %s", g.ID, g.Status), map[string]any{"gate": g})
+			}
+		}
+	}()
 
 	rt.ipcServer = NewIPCServer(rt, broadcaster)
 	rt.pipeServer = NewPipeServer(rt, broadcaster)
@@ -193,8 +214,10 @@ func (r *Runtime) StartResearch() error {
 	// Run research engine in background goroutine
 	go func() {
 		engineCfg := coordinator.EngineConfig{
-			TargetURL: targetURL,
-			Budget:    r.governor.requestBudget,
+			TargetURL:   targetURL,
+			Budget:      r.governor.requestBudget,
+			GateManager: r.gateManager,
+			Council:     r.council,
 		}
 		engine := coordinator.NewAutonomousEngine(engineCfg)
 		res, err := engine.Run(ctx)
@@ -308,4 +331,42 @@ func (r *Runtime) GetFindings() ([]domain.ProvenFinding, []*report.ProofBundle) 
 	bundles := make([]*report.ProofBundle, len(r.proofBundles))
 	copy(bundles, r.proofBundles)
 	return findings, bundles
+}
+
+// GateManager returns the human approval gate manager.
+func (r *Runtime) GateManager() *gates.Manager {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.gateManager
+}
+
+// Council returns the 50+ veteran researcher ensemble council.
+func (r *Runtime) Council() *reasoning.EnsembleCouncil {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.council
+}
+
+// ApproveGate resolves an approval gate with operator authorization.
+func (r *Runtime) ApproveGate(id uuid.UUID, decisionBy, notes string) error {
+	if r.gateManager == nil {
+		return fmt.Errorf("gate manager not initialized")
+	}
+	return r.gateManager.Approve(id, decisionBy, notes)
+}
+
+// RejectGate resolves an approval gate with rejection.
+func (r *Runtime) RejectGate(id uuid.UUID, decisionBy, notes string) error {
+	if r.gateManager == nil {
+		return fmt.Errorf("gate manager not initialized")
+	}
+	return r.gateManager.Reject(id, decisionBy, notes)
+}
+
+// ChooseGateOption resolves a direction gate with the selected choice index.
+func (r *Runtime) ChooseGateOption(id uuid.UUID, optionIdx int, decisionBy string) error {
+	if r.gateManager == nil {
+		return fmt.Errorf("gate manager not initialized")
+	}
+	return r.gateManager.ChooseOption(id, optionIdx, decisionBy)
 }

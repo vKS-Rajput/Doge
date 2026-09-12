@@ -20,10 +20,13 @@ namespace DOGE.Desktop.Services
             {
                 try
                 {
+                    // Escape internal double quotes for sh -c
+                    var escaped = command.Replace("\"", "\\\"");
+
                     var psi = new ProcessStartInfo
                     {
                         FileName = "wsl.exe",
-                        Arguments = $"-d {_distro} -- {command}",
+                        Arguments = $"-d {_distro} -- sh -c \"{escaped}\"",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,

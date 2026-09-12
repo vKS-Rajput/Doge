@@ -16,6 +16,7 @@ import (
 	"github.com/vKS-Rajput/doge/internal/learning"
 	"github.com/vKS-Rajput/doge/internal/novelty"
 	"github.com/vKS-Rajput/doge/internal/ontology"
+	"github.com/vKS-Rajput/doge/internal/reasoning"
 	"github.com/vKS-Rajput/doge/internal/report"
 	"github.com/vKS-Rajput/doge/internal/sandbox"
 	"github.com/vKS-Rajput/doge/internal/strategy"
@@ -37,6 +38,8 @@ type EngineConfig struct {
 	SecretKey   []byte
 	Policy      gates.PolicyConfig
 	ModelRouter *ai.ModelRouter
+	GateManager *gates.Manager
+	Council     *reasoning.EnsembleCouncil
 }
 
 // EngineResult encapsulates the complete verified output of an autonomous research run.
@@ -66,6 +69,8 @@ type AutonomousEngine struct {
 	scm         *causal.SCMGraph
 	cegar       *synthesis.CEGARSynthesizer
 	modelRouter *ai.ModelRouter
+	gateManager *gates.Manager
+	council     *reasoning.EnsembleCouncil
 }
 
 // NewAutonomousEngine constructs an autonomous research science engine.
@@ -102,6 +107,8 @@ func NewAutonomousEngine(cfg EngineConfig) *AutonomousEngine {
 		scm:         causal.NewSCMGraph(),
 		cegar:       synthesis.NewCEGARSynthesizer(),
 		modelRouter: cfg.ModelRouter,
+		gateManager: cfg.GateManager,
+		council:     cfg.Council,
 	}
 }
 
@@ -259,7 +266,57 @@ func (e *AutonomousEngine) Run(ctx context.Context) (*EngineResult, error) {
 			}
 
 			if err := strategy.TypeCheck(prog, policy); err == nil {
-				// Strategy is type-safe and authorized. Execute target intervention.
+				// Strategy is type-safe and authorized.
+				// Deliberate with 50+ Researcher Ensemble Council & consult Human Approval Gate
+				if e.council != nil {
+					delib := e.council.Deliberate(ctx, probeTarget, eval.DiscrepancyDimension, eval.AnomalyScore)
+					if delib != nil && delib.RequiresHumanGate && e.gateManager != nil {
+						gateCtx := gates.GateContext{
+							Target:            probeTarget,
+							Tool:              "CEGAR / Tactical Sandbox Prover",
+							Command:           fmt.Sprintf("Verify zero-day invariant %s via minimal stimulus intervention", eval.DiscrepancyDimension),
+							RiskLevel:         delib.ProposedRiskRating,
+							Reason:            fmt.Sprintf("Ensemble specialist consensus (%.0f%%) recommends verification of %s", delib.ConsensusScore*100, eval.DiscrepancyDimension),
+							Confidence:        delib.ConsensusScore,
+							EstimatedRequests: 1,
+							EstimatedDuration: "250ms",
+						}
+						gate := e.gateManager.CreateApprovalGate(
+							fmt.Sprintf("Authorize Exploit Verification: %s at %s", eval.DiscrepancyDimension, probeTarget),
+							fmt.Sprintf("The 50+ Researcher Ensemble Council has synthesized an exploit verification probe to test invariant divergence at %s. Approval required before firing.", probeTarget),
+							gateCtx,
+						)
+
+						// Wait for human decision or context cancellation
+						sub := e.gateManager.Subscribe()
+						approved := false
+					waitLoop:
+						for {
+							select {
+							case <-ctx.Done():
+								e.gateManager.Unsubscribe(sub)
+								return nil, ctx.Err()
+							case updatedGate := <-sub:
+								if updatedGate.ID == gate.ID {
+									if updatedGate.Status == gates.StatusApproved {
+										approved = true
+										break waitLoop
+									} else if updatedGate.Status == gates.StatusRejected {
+										break waitLoop
+									}
+								}
+							}
+						}
+						e.gateManager.Unsubscribe(sub)
+
+						if !approved {
+							// Operator rejected; skip execution of this exploit test
+							continue
+						}
+					}
+				}
+
+				// Execute target intervention.
 				vulnType := mapDimensionStringToVulnType(eval.DiscrepancyDimension)
 				findingID := uuid.New()
 

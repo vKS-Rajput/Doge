@@ -4,30 +4,36 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <!-- Color Palette Tokens -->
-        <Color x:Key="ColorBgObsidian">#070A11</Color>
-        <Color x:Key="ColorSurface">#0B0F19</Color>
-        <Color x:Key="ColorCard">#0E1424</Color>
-        <Color x:Key="ColorCardBorder">#1A233A</Color>
+        <Color x:Key="ColorBgObsidian">#06080F</Color>
+        <Color x:Key="ColorSurface">#090D18</Color>
+        <Color x:Key="ColorCard">#0B111E</Color>
+        <Color x:Key="ColorCardBorder">#151D2E</Color>
+        <Color x:Key="ColorCardBorderHover">#1E2E4A</Color>
         <Color x:Key="ColorCyan">#00F0FF</Color>
-        <Color x:Key="ColorViolet">#8B5CF6</Color>
+        <Color x:Key="ColorCyanDim">#007A87</Color>
+        <Color x:Key="ColorViolet">#A855F7</Color>
         <Color x:Key="ColorEmerald">#10B981</Color>
         <Color x:Key="ColorAmber">#F59E0B</Color>
-        <Color x:Key="ColorCrimson">#EF4444</Color>
+        <Color x:Key="ColorCrimson">#F43F5E</Color>
         <Color x:Key="ColorText">#E2E8F0</Color>
         <Color x:Key="ColorTextMuted">#64748B</Color>
+        <Color x:Key="ColorTextSubtle">#475569</Color>
 
         <!-- Solid Color Brushes -->
         <SolidColorBrush x:Key="BrushBgObsidian" Color="{StaticResource ColorBgObsidian}" />
         <SolidColorBrush x:Key="BrushSurface" Color="{StaticResource ColorSurface}" />
         <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
         <SolidColorBrush x:Key="BrushCardBorder" Color="{StaticResource ColorCardBorder}" />
+        <SolidColorBrush x:Key="BrushCardBorderHover" Color="{StaticResource ColorCardBorderHover}" />
         <SolidColorBrush x:Key="BrushCyan" Color="{StaticResource ColorCyan}" />
+        <SolidColorBrush x:Key="BrushCyanDim" Color="{StaticResource ColorCyanDim}" />
         <SolidColorBrush x:Key="BrushViolet" Color="{StaticResource ColorViolet}" />
         <SolidColorBrush x:Key="BrushEmerald" Color="{StaticResource ColorEmerald}" />
         <SolidColorBrush x:Key="BrushAmber" Color="{StaticResource ColorAmber}" />
         <SolidColorBrush x:Key="BrushCrimson" Color="{StaticResource ColorCrimson}" />
         <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}" />
         <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextMuted}" />
+        <SolidColorBrush x:Key="BrushTextSubtle" Color="{StaticResource ColorTextSubtle}" />
 
         <!-- Base Cyber Button Style -->
         <Style x:Key="CyberButton" TargetType="Button">
@@ -35,9 +41,9 @@
             <Setter Property="Foreground" Value="#94A3B8" />
             <Setter Property="BorderBrush" Value="#1E293B" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Padding" Value="9,4.5" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -45,7 +51,7 @@
                         <Border x:Name="border" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4" SnapsToDevicePixels="True">
+                                CornerRadius="5" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                               Margin="{TemplateBinding Padding}" />
                         </Border>
@@ -53,10 +59,13 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrushCyan}" />
                                 <Setter Property="Foreground" Value="{StaticResource BrushCyan}" />
-                                <Setter TargetName="border" Property="Background" Value="#132038" />
+                                <Setter TargetName="border" Property="Background" Value="#14233C" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#0B1324" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -66,7 +75,7 @@
 
         <!-- Primary Glowing Start Button -->
         <Style x:Key="CyberPrimaryButton" TargetType="Button" BasedOn="{StaticResource CyberButton}">
-            <Setter Property="Background" Value="#002B36" />
+            <Setter Property="Background" Value="#002E3B" />
             <Setter Property="Foreground" Value="{StaticResource BrushCyan}" />
             <Setter Property="BorderBrush" Value="{StaticResource BrushCyan}" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -75,7 +84,7 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1.5"
+                                BorderThickness="1.2"
                                 CornerRadius="5" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                               Margin="{TemplateBinding Padding}" />
@@ -83,7 +92,11 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{StaticResource BrushCyan}" />
-                                <Setter Property="Foreground" Value="#070A11" />
+                                <Setter Property="Foreground" Value="#06080F" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#009FB0" />
+                                <Setter Property="Foreground" Value="#06080F" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -91,9 +104,17 @@
             </Setter>
         </Style>
 
+        <!-- Crimson Accent Button -->
+        <Style x:Key="CyberCrimsonButton" TargetType="Button" BasedOn="{StaticResource CyberButton}">
+            <Setter Property="Background" Value="#2E0A12" />
+            <Setter Property="Foreground" Value="{StaticResource BrushCrimson}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BrushCrimson}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
         <!-- Search / Input Style -->
         <Style x:Key="CyberTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#0A0E1A" />
+            <Setter Property="Background" Value="#090E1A" />
             <Setter Property="Foreground" Value="{StaticResource BrushText}" />
             <Setter Property="BorderBrush" Value="{StaticResource BrushCardBorder}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -105,12 +126,64 @@
                         <Border x:Name="border" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4">
+                                CornerRadius="5">
                             <ScrollViewer x:Name="PART_ContentHost" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsFocused" Value="True">
                                 <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrushCyan}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sleek ScrollBar Style -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="5" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Background="#1E293B" CornerRadius="2.5" />
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Nav Item Button Style -->
+        <Style x:Key="NavRailButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,1.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#0E1726" />
+                                <Setter Property="Foreground" Value="{StaticResource BrushCyan}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

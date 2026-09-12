@@ -1,0 +1,6 @@
+name = 'DOGE Research Workspace'
+target = 'https://authorized.example'
+created_at = 2026-09-11T19:33:41.8962883Z
+environment = 'hybrid'
+scope = ['https://authorized.example']
+description = 'DOGE security research workspace for https://authorized.example'

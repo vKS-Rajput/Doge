@@ -13,6 +13,7 @@ import (
 	"time"
 
 	winio "github.com/Microsoft/go-winio"
+	"github.com/google/uuid"
 )
 
 const (
@@ -323,7 +324,95 @@ func (s *PipeServer) dispatch(req PipeMessage) PipeMessage {
 				"risk":      m.Risk,
 			},
 		)
-		resp.Data = map[string]any{"status": "created", "target": m.Target}
+	case "gates.list":
+		gm := s.runtime.GateManager()
+		if gm == nil {
+			resp.Data = map[string]any{"pending": []any{}, "all": []any{}}
+		} else {
+			resp.Data = map[string]any{
+				"pending": gm.ListPending(),
+				"all":     gm.ListAll(),
+			}
+		}
+
+	case "gates.approve":
+		var p struct {
+			GateID string `json:"gate_id"`
+			Notes  string `json:"notes"`
+		}
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			resp.Success = false
+			resp.Error = "Invalid approval payload: " + err.Error()
+			return resp
+		}
+		id, err := uuid.Parse(p.GateID)
+		if err != nil {
+			resp.Success = false
+			resp.Error = "Invalid gate UUID: " + err.Error()
+			return resp
+		}
+		if err := s.runtime.ApproveGate(id, "operator", p.Notes); err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = map[string]any{"status": "approved", "gate_id": p.GateID}
+		}
+
+	case "gates.reject":
+		var p struct {
+			GateID string `json:"gate_id"`
+			Notes  string `json:"notes"`
+		}
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			resp.Success = false
+			resp.Error = "Invalid rejection payload: " + err.Error()
+			return resp
+		}
+		id, err := uuid.Parse(p.GateID)
+		if err != nil {
+			resp.Success = false
+			resp.Error = "Invalid gate UUID: " + err.Error()
+			return resp
+		}
+		if err := s.runtime.RejectGate(id, "operator", p.Notes); err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = map[string]any{"status": "rejected", "gate_id": p.GateID}
+		}
+
+	case "gates.choose":
+		var p struct {
+			GateID      string `json:"gate_id"`
+			OptionIndex int    `json:"option_index"`
+		}
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			resp.Success = false
+			resp.Error = "Invalid choice payload: " + err.Error()
+			return resp
+		}
+		id, err := uuid.Parse(p.GateID)
+		if err != nil {
+			resp.Success = false
+			resp.Error = "Invalid gate UUID: " + err.Error()
+			return resp
+		}
+		if err := s.runtime.ChooseGateOption(id, p.OptionIndex, "operator"); err != nil {
+			resp.Success = false
+			resp.Error = err.Error()
+		} else {
+			resp.Data = map[string]any{"status": "chosen", "gate_id": p.GateID, "option_index": p.OptionIndex}
+		}
+
+	case "research.council":
+		c := s.runtime.Council()
+		if c == nil {
+			resp.Data = map[string]any{"specialists": []any{}}
+		} else {
+			resp.Data = map[string]any{
+				"specialists": c.GetSpecialists(),
+			}
+		}
 
 	default:
 		resp.Success = false

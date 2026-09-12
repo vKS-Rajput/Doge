@@ -1,2 +1,5 @@
-C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.pdb
 C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.exe
+C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.dll
+C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.deps.json
+C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.runtimeconfig.json
+C:\Users\k8659\OneDrive\Desktop\Doge\publish\DOGE.pdb
